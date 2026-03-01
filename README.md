@@ -1,0 +1,1 @@
+An automated web-based system that leverages Natural Language Processing (NLP) to transform user stories into comprehensive software test cases, streamlining the Requirement Analysis and Testing phase
