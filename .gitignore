@@ -1,0 +1,14 @@
+# Environment variables - never commit your API keys!
+backend/.env
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+
+# Node
+node_modules/
+dist/
