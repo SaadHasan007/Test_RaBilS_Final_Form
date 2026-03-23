@@ -1,36 +1,63 @@
 import React from 'react';
 
-// ─── Gherkin Parser ───────────────────────────────────────────────────────────
-/**
- * Parses a Gherkin feature string into an array of structured test-case objects.
- *
- * Each object has:
- *   id          – e.g. "TC-001"
- *   requirementId – e.g. "REQ-001"
- *   testCase    – scenario title
- *   precondition – text of the first Given block (joined)
- *   steps       – array of step strings (When / Then / And / But after Given)
- *   expectedResult – text collected after the last "Then" keyword
- */
-function parseGherkin(gherkin) {
+// ─────────────────────────────────────────────────────────────────────────────
+// TEST_CASE_SCHEMA
+// This is the single source of truth for the test case table structure.
+//
+// Each entry defines:
+//   label – the column header displayed in the table
+//   field – the key used in every test case data object
+//
+// When your trained model is ready, make it return an array of objects where
+// each object has exactly these field names, then pass that array as the
+// `testCaseRows` prop directly to <TestCasesDisplay /> — no other changes needed.
+//
+// Example object your model should produce per test case:
+// {
+//   testCaseId:    "TC-001",
+//   requirementId: "REQ-001",
+//   testCase:      "User logs in with valid credentials",
+//   precondition:  "User has a registered account",
+//   steps:         ["Open login page", "Enter credentials", "Click Login"],
+//   expectedResult:"User is redirected to the dashboard",
+//   priority:      "High",
+// }
+// ─────────────────────────────────────────────────────────────────────────────
+export const TEST_CASE_SCHEMA = [
+  { label: 'Test Case ID',    field: 'testCaseId'    },
+  { label: 'Requirement ID',  field: 'requirementId' },
+  { label: 'Test Case',       field: 'testCase'      },
+  { label: 'Precondition',    field: 'precondition'  },
+  { label: 'Test Steps',      field: 'steps'         },  // value must be an array of strings
+  { label: 'Expected Result', field: 'expectedResult'},
+  { label: 'Priority',        field: 'priority'      },
+];
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// parseGherkinToSchema
+// Converts a raw Gherkin string → array of objects whose keys match TEST_CASE_SCHEMA.
+// This is used NOW (before the trained model is attached).
+// Once you plug-in the model you can REPLACE this function entirely; the table
+// component below will keep working because it only reads the schema fields.
+// ─────────────────────────────────────────────────────────────────────────────
+function parseGherkinToSchema(gherkin) {
   if (!gherkin) return [];
 
   const lines = gherkin.split('\n');
-  const scenarios = [];
+  const intermediate = [];   // raw parsed scenarios
   let current = null;
-  // Track whether we've left the "Given" / precondition section
   let inPrecondition = true;
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
 
     if (line.startsWith('Scenario:') || line.startsWith('Scenario Outline:')) {
-      // Save previous scenario
-      if (current) scenarios.push(current);
+      if (current) intermediate.push(current);
       current = {
         testCase: line.replace(/^Scenario(?: Outline)?:\s*/i, '').trim(),
         preconditionParts: [],
-        steps: [],
+        stepParts: [],
         expectedResultParts: [],
       };
       inPrecondition = true;
@@ -39,76 +66,101 @@ function parseGherkin(gherkin) {
 
     if (!current) continue;
 
-    // Given / And/But at the START (precondition zone)
     if (line.startsWith('Given ')) {
       current.preconditionParts.push(line.replace(/^Given\s+/i, '').trim());
       inPrecondition = true;
       continue;
     }
 
-    // When → moves us out of precondition into steps
     if (line.startsWith('When ')) {
       inPrecondition = false;
-      current.steps.push(line.replace(/^When\s+/i, '').trim());
+      current.stepParts.push(line.replace(/^When\s+/i, '').trim());
       continue;
     }
 
-    // Then → expected result collector (also a step)
     if (line.startsWith('Then ')) {
       inPrecondition = false;
-      current.expectedResultParts.push(line.replace(/^Then\s+/i, '').trim());
-      current.steps.push(line.replace(/^Then\s+/i, '').trim());
+      const text = line.replace(/^Then\s+/i, '').trim();
+      current.expectedResultParts.push(text);
+      current.stepParts.push(text);
       continue;
     }
 
-    // And / But – goes to the currently active section
     if (line.startsWith('And ') || line.startsWith('But ')) {
       const text = line.replace(/^(?:And|But)\s+/i, '').trim();
       if (inPrecondition) {
         current.preconditionParts.push(text);
       } else {
-        // If we already have an expected result, collect more into it too
-        if (current.expectedResultParts.length > 0) {
-          current.expectedResultParts.push(text);
-        }
-        current.steps.push(text);
+        if (current.expectedResultParts.length > 0) current.expectedResultParts.push(text);
+        current.stepParts.push(text);
       }
     }
   }
 
-  if (current) scenarios.push(current);
+  if (current) intermediate.push(current);
 
-  // Build final rows
-  return scenarios.map((sc, idx) => ({
-    id: `TC-${String(idx + 1).padStart(3, '0')}`,
+  // Map to the exact field names defined in TEST_CASE_SCHEMA
+  return intermediate.map((sc, idx) => ({
+    testCaseId:    `TC-${String(idx + 1).padStart(3, '0')}`,
     requirementId: `REQ-${String(idx + 1).padStart(3, '0')}`,
-    testCase: sc.testCase || `Test Case ${idx + 1}`,
-    precondition: sc.preconditionParts.join('; ') || '—',
-    steps: sc.steps.length > 0 ? sc.steps : ['(no steps found)'],
-    expectedResult: sc.expectedResultParts.join('; ') || sc.steps[sc.steps.length - 1] || '—',
-    // priority comes from parent; individual rows share it for now
+    testCase:      sc.testCase || `Test Case ${idx + 1}`,
+    precondition:  sc.preconditionParts.join('; ') || '—',
+    steps:         sc.stepParts.length > 0 ? sc.stepParts : ['(no steps found)'],
+    expectedResult:sc.expectedResultParts.join('; ') || sc.stepParts[sc.stepParts.length - 1] || '—',
+    // `priority` is injected per-row in the component below (comes from the backend)
   }));
 }
 
+
 // ─── Priority badge ───────────────────────────────────────────────────────────
 const PriorityBadge = ({ priority }) => {
-  const styles =
-    priority === 'High'
-      ? 'text-red-400'
-      : priority === 'Medium'
-      ? 'text-yellow-400'
-      : 'text-green-400';
-  return <span className={`font-semibold ${styles}`}>{priority}</span>;
+  const color =
+    priority === 'High'   ? 'text-red-400'    :
+    priority === 'Medium' ? 'text-yellow-400' :
+                            'text-green-400';
+  return <span className={`font-semibold ${color}`}>{priority}</span>;
 };
 
+
+// ─── Cell renderer ────────────────────────────────────────────────────────────
+// Handles the special cases: `steps` (array → numbered list), `priority` (badge).
+const CellValue = ({ field, value, priority }) => {
+  if (field === 'steps') {
+    const items = Array.isArray(value) ? value : [value];
+    return (
+      <ol className="list-none space-y-1">
+        {items.map((step, i) => (
+          <li key={i} className="flex gap-2">
+            <span className="text-blue-400 font-semibold shrink-0">{i + 1}.</span>
+            <span>{step}</span>
+          </li>
+        ))}
+      </ol>
+    );
+  }
+
+  if (field === 'priority') {
+    return <PriorityBadge priority={priority} />;
+  }
+
+  return <span>{value ?? '—'}</span>;
+};
+
+
 // ─── Main Component ───────────────────────────────────────────────────────────
-const TestCasesDisplay = ({ gherkin, priority }) => {
-  if (!gherkin) return null;
+// Props:
+//   gherkin      – raw Gherkin string from the backend (used until model is attached)
+//   priority     – "High" | "Medium" | "Low" from the backend
+//   testCaseRows – (optional) pre-structured array from your trained model.
+//                  When provided, `gherkin` is ignored and this data is displayed
+//                  directly. Each object must have the field names in TEST_CASE_SCHEMA.
+const TestCasesDisplay = ({ gherkin, priority, testCaseRows }) => {
+  // Prefer model-supplied rows; fall back to parsing the Gherkin string
+  const rows = testCaseRows ?? parseGherkinToSchema(gherkin);
 
-  const testCases = parseGherkin(gherkin);
-
-  // If parser produced nothing (unexpected format), fall back to raw display
-  if (testCases.length === 0) {
+  if (!rows || rows.length === 0) {
+    if (!gherkin) return null;
+    // Nothing parsed – raw fallback
     return (
       <div className="mt-8">
         <h2 className="text-2xl font-bold text-white mb-6">Generated Test Cases</h2>
@@ -121,12 +173,10 @@ const TestCasesDisplay = ({ gherkin, priority }) => {
 
   return (
     <div className="mt-8">
-      {/* Section header */}
       <h2 className="text-3xl font-bold text-white text-center mb-8 tracking-tight">
         Generated Test Cases
       </h2>
 
-      {/* Table wrapper */}
       <div
         className="rounded-2xl overflow-hidden shadow-2xl"
         style={{
@@ -137,7 +187,8 @@ const TestCasesDisplay = ({ gherkin, priority }) => {
       >
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-sm">
-            {/* Header */}
+
+            {/* ── Header – driven by TEST_CASE_SCHEMA labels ── */}
             <thead>
               <tr
                 style={{
@@ -145,83 +196,47 @@ const TestCasesDisplay = ({ gherkin, priority }) => {
                   borderBottom: '2px solid rgba(99, 132, 255, 0.3)',
                 }}
               >
-                {[
-                  'Test Case ID',
-                  'Requirement ID',
-                  'Test Case',
-                  'Precondition',
-                  'Test Steps',
-                  'Expected Result',
-                  'Priority',
-                ].map((col) => (
+                {TEST_CASE_SCHEMA.map(({ label }) => (
                   <th
-                    key={col}
+                    key={label}
                     className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider text-blue-200"
                     style={{ whiteSpace: 'nowrap' }}
                   >
-                    {col}
+                    {label}
                   </th>
                 ))}
               </tr>
             </thead>
 
-            {/* Body */}
+            {/* ── Body – driven by TEST_CASE_SCHEMA fields ── */}
             <tbody>
-              {testCases.map((tc, rowIdx) => (
+              {rows.map((row, rowIdx) => (
                 <tr
-                  key={tc.id}
+                  key={row.testCaseId ?? rowIdx}
                   style={{
-                    background:
-                      rowIdx % 2 === 0
-                        ? 'rgba(20, 30, 70, 0.6)'
-                        : 'rgba(12, 20, 55, 0.5)',
+                    background: rowIdx % 2 === 0
+                      ? 'rgba(20, 30, 70, 0.6)'
+                      : 'rgba(12, 20, 55, 0.5)',
                     borderBottom: '1px solid rgba(99, 132, 255, 0.1)',
                   }}
                 >
-                  {/* Test Case ID */}
-                  <td className="px-4 py-5 text-slate-200 font-mono font-semibold align-top whitespace-nowrap">
-                    {tc.id}
-                  </td>
-
-                  {/* Requirement ID */}
-                  <td className="px-4 py-5 text-slate-200 font-mono align-top whitespace-nowrap">
-                    {tc.requirementId}
-                  </td>
-
-                  {/* Test Case description */}
-                  <td className="px-4 py-5 text-slate-100 align-top max-w-[180px]">
-                    {tc.testCase}
-                  </td>
-
-                  {/* Precondition */}
-                  <td className="px-4 py-5 text-slate-300 align-top max-w-[200px]">
-                    {tc.precondition}
-                  </td>
-
-                  {/* Test Steps – auto-numbered */}
-                  <td className="px-4 py-5 text-slate-300 align-top max-w-[220px]">
-                    <ol className="list-none space-y-1">
-                      {tc.steps.map((step, i) => (
-                        <li key={i} className="flex gap-2">
-                          <span className="text-blue-400 font-semibold shrink-0">{i + 1}.</span>
-                          <span>{step}</span>
-                        </li>
-                      ))}
-                    </ol>
-                  </td>
-
-                  {/* Expected Result */}
-                  <td className="px-4 py-5 text-slate-300 align-top max-w-[180px]">
-                    {tc.expectedResult}
-                  </td>
-
-                  {/* Priority */}
-                  <td className="px-4 py-5 align-top whitespace-nowrap">
-                    <PriorityBadge priority={priority} />
-                  </td>
+                  {TEST_CASE_SCHEMA.map(({ field }) => (
+                    <td
+                      key={field}
+                      className="px-4 py-5 text-slate-200 align-top"
+                      style={{ maxWidth: field === 'steps' ? 220 : 180 }}
+                    >
+                      <CellValue
+                        field={field}
+                        value={row[field]}
+                        priority={row.priority ?? priority}
+                      />
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>
+
           </table>
         </div>
       </div>
