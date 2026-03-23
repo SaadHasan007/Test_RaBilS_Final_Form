@@ -41,7 +41,7 @@ export const TEST_CASE_SCHEMA = [
 // Once you plug-in the model you can REPLACE this function entirely; the table
 // component below will keep working because it only reads the schema fields.
 // ─────────────────────────────────────────────────────────────────────────────
-function parseGherkinToSchema(gherkin) {
+export function parseGherkinToSchema(gherkin) {
   if (!gherkin) return [];
 
   const lines = gherkin.split('\n');

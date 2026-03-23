@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import UserStoryInput from './components/UserStoryInput';
 import AmbiguityCheck from './components/AmbiguityCheck';
-import TestCasesDisplay from './components/TestCasesDisplay';
+import TestCasesDisplay, { parseGherkinToSchema } from './components/TestCasesDisplay';
 import ExportButtons from './components/ExportButtons';
 import MatrixPanel from './components/MatrixPanel';
 import StatusBadge from './components/StatusBadge';
@@ -17,10 +17,13 @@ function App() {
   const [ambiguityLoading, setAmbiguityLoading] = useState(false);
 
   // Generation state
-  const [gherkin, setGherkin] = useState('');
-  const [priority, setPriority] = useState('');
+  // allTestCaseRows accumulates rows from EVERY generation — never replaced, only appended.
+  // Each row already contains a `priority` field so each story's priority is preserved.
+  const [allTestCaseRows, setAllTestCaseRows] = useState([]);
+  // Keep the latest gherkin string for ExportButtons / MatrixPanel
+  const [latestGherkin, setLatestGherkin] = useState('');
+  const [latestPriority, setLatestPriority] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showResults, setShowResults] = useState(false);
 
   const [error, setError] = useState(null);
 
@@ -34,7 +37,6 @@ function App() {
     setAmbiguityLoading(true);
     setFormattedStory(null);
     setAmbiguityNotes([]);
-    setShowResults(false);
 
     try {
       const result = await checkAmbiguity(userStory);
@@ -56,13 +58,27 @@ function App() {
     }
     setError(null);
     setLoading(true);
-    setShowResults(false);
 
     try {
-      // Pass formattedStory so the backend uses the cleaned version
       const result = await generateTestCases(userStory, formattedStory);
-      setGherkin(result.gherkin);
-      setPriority(result.priority);
+      setLatestGherkin(result.gherkin);
+      setLatestPriority(result.priority);
+
+      // Parse gherkin → schema rows, embed priority into each row
+      const newRows = parseGherkinToSchema(result.gherkin).map((row) => ({
+        ...row,
+        priority: result.priority,
+      }));
+
+      // Append and globally re-number IDs
+      setAllTestCaseRows((prev) => {
+        const merged = [...prev, ...newRows];
+        return merged.map((row, idx) => ({
+          ...row,
+          testCaseId:    `TC-${String(idx + 1).padStart(3, '0')}`,
+          requirementId: `REQ-${String(idx + 1).padStart(3, '0')}`,
+        }));
+      });
     } catch (err) {
       setError('Failed to generate test cases.');
       setLoading(false);
@@ -73,7 +89,14 @@ function App() {
 
   const handleAnimationComplete = () => {
     setLoading(false);
-    setShowResults(true);
+    // showResults is now derived — table shows whenever allTestCaseRows is non-empty
+  };
+
+  // ── Clear all accumulated test cases ────────────────────────────────────────
+  const handleClearAll = () => {
+    setAllTestCaseRows([]);
+    setLatestGherkin('');
+    setLatestPriority('');
   };
 
   return (
@@ -147,16 +170,31 @@ function App() {
               originalStory={userStory}
             />
 
-            {showResults && gherkin && (
+            {allTestCaseRows.length > 0 && (
               <div className="animate-fade-in-up mt-10 border-t border-white/5 pt-10">
-                <TestCasesDisplay gherkin={gherkin} priority={priority} />
-                {/* Use formattedStory for the matrix if available */}
+
+                {/* Clear All button */}
+                <div className="flex justify-end mb-4">
+                  <button
+                    onClick={handleClearAll}
+                    className="px-4 py-2 text-sm font-semibold rounded-xl
+                               text-red-300 border border-red-500/30 bg-red-500/10
+                               hover:bg-red-500/20 transition-all duration-200"
+                  >
+                    🗑 Clear All
+                  </button>
+                </div>
+
+                {/* Accumulated test case table */}
+                <TestCasesDisplay testCaseRows={allTestCaseRows} priority={latestPriority} />
+
+                {/* Use latestGherkin / formattedStory for matrix + export */}
                 <MatrixPanel
                   userStory={formattedStory || userStory}
-                  testCases={gherkin}
-                  priority={priority}
+                  testCases={latestGherkin}
+                  priority={latestPriority}
                 />
-                <ExportButtons testCases={gherkin} userStory={formattedStory || userStory} />
+                <ExportButtons testCases={latestGherkin} userStory={formattedStory || userStory} />
               </div>
             )}
           </div>
