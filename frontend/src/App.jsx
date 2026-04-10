@@ -194,7 +194,8 @@ function App() {
                 {/* Use latestGherkin / formattedStory for matrix + export */}
                 <MatrixPanel
                   userStory={formattedStory || userStory}
-                  testCases={latestGherkin}
+                  //testCases={latestGherkin} fix this error so it will handle list 
+                  testCases={"test line app.jsx~ 190"}
                   priority={latestPriority}
                 />
                 <ExportButtons testCases={latestGherkin} userStory={formattedStory || userStory} />
