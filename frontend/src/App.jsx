@@ -21,7 +21,7 @@ function App() {
   // Each row already contains a `priority` field so each story's priority is preserved.
   const [allTestCaseRows, setAllTestCaseRows] = useState([]);
   // Keep the latest gherkin string for ExportButtons / MatrixPanel
-  const [latestGherkin, setLatestGherkin] = useState('');
+  const [latestGherkin, setLatestGherkin] = useState([]);
   const [latestPriority, setLatestPriority] = useState('');
   const [loading, setLoading] = useState(false);
 
