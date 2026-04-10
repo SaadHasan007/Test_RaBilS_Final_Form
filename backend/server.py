@@ -57,8 +57,9 @@ def generate_route():
     story_for_generation = data.get('formatted_story') or user_story
 
     generated_gherkin = generate_test_cases(story_for_generation)
-    priority = calculate_priority(generated_gherkin, story_for_generation)
-
+    #handle this error , this is due to priorty previusely takes string, but now we giving it a list
+    #priority = calculate_priority(generated_gherkin, story_for_generation) 
+    priority = calculate_priority(story_for_generation)
     return jsonify({
         'gherkin': generated_gherkin,
         'priority': priority
