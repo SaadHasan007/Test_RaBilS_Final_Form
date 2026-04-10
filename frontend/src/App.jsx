@@ -98,7 +98,7 @@ function App() {
   // ── Clear all accumulated test cases ────────────────────────────────────────
   const handleClearAll = () => {
     setAllTestCaseRows([]);
-    setLatestGherkin('');
+    setLatestGherkin([]);
     setLatestPriority('');
   };
 
