@@ -65,22 +65,25 @@ function App() {
       setLatestPriority(result.priority);
 
       // Parse gherkin → schema rows, embed priority into each row
-      const newRows = parseGherkinToSchema(result.gherkin).map((row) => ({
+      const newRows =result.gherkin.map((row) => ({
         ...row,
         priority: result.priority,
       }));
 
+      //const newRows = result.gherkin;
+      setAllTestCaseRows((prev) => [...prev, ...newRows]);
+// this code is for ids generation using front end, but id generation already handled by backend 
       // Append and globally re-number IDs
-      setAllTestCaseRows((prev) => {
-        const merged = [...prev, ...newRows];
-        return merged.map((row, idx) => ({
-          ...row,
-          testCaseId:    `TC-${String(idx + 1).padStart(3, '0')}`,
-          requirementId: `REQ-${String(idx + 1).padStart(3, '0')}`,
-        }));
-      });
+      // setAllTestCaseRows((prev) => {
+      //   const merged = [...prev, ...newRows];
+      //   return merged.map((row, idx) => ({
+      //     ...row,
+      //     testCaseId:    `TC-${String(idx + 1).padStart(3, '0')}`,
+      //     requirementId: `REQ-${String(idx + 1).padStart(3, '0')}`,
+      //   }));
+      // });
     } catch (err) {
-      setError('Failed to generate test cases.');
+      setError('Failed to generate test cases. app.jsx line ~83');
       setLoading(false);
     }
     // setLoading(false) is NOT called here — StatusBadge calls onComplete when its
