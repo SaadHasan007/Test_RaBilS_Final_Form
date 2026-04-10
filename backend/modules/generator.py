@@ -1,36 +1,45 @@
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+from transformers import T5Tokenizer, T5ForConditionalGeneration
+import torch 
+from . import nlp
 
-# Placeholder for the fine-tuned model path
-# TODO: Update this path after training the model
-MODEL_PATH = "t5-small" # Later: "./my_fine_tuned_model"
+MODEL_PATH = "./models" 
 
 try:
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
-    model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_PATH)
+    tokenizer = T5Tokenizer.from_pretrained(MODEL_PATH)
+    model = T5ForConditionalGeneration.from_pretrained(MODEL_PATH)
+
 except Exception as e:
     print(f"Error loading model: {e}")
     tokenizer = None
     model = None
 
-def generate_test_cases(user_story):
-    """
-    Generates Gherkin test cases from a User Story.
-    Currently mocks the output until the fine-tuned model is ready.
-    """
-    
-    # Mock output logic for Phase 1
-    # In Phase 2/3, we will use:
-    # inputs = tokenizer("generate test case: " + user_story, return_tensors="pt")
-    # outputs = model.generate(inputs.input_ids, max_length=512)
-    # return tokenizer.decode(outputs[0], skip_special_tokens=True)
-    
-    mock_gherkin = f"""Feature: User Story Implementation
+def generate_ac(user_story):
 
-  Scenario: Successful execution of the user story
-    Given the user is on the application page
-    And the system is in a valid state
-    When the user performs the action described as "{user_story[:20]}..."
-    Then the system should respond correctly
-    And the user goal should be achieved
-"""
-    return mock_gherkin
+    input_text = "convert user story to acceptance criteria: " + user_story
+
+    inputs = tokenizer(
+        input_text,
+        return_tensors="pt",
+        truncation=True,
+        padding=True,
+        max_length=128
+    )
+
+    with torch.no_grad():
+        outputs = model.generate(
+            inputs["input_ids"],
+            max_length=128,
+            num_beams=4,
+            early_stopping=True
+        )
+
+    result = tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+    return result
+
+
+def generate_test_cases(user_story): 
+    ac = generate_ac(user_story)
+    result= [user_story,ac]
+    return nlp.nlp_processor(result)
+    
