@@ -13,7 +13,7 @@ export const checkAmbiguity = async (userStory) => {
     });
     return response.data;
   } catch (error) {
-    console.error('Error checking ambiguity:', error);
+    console.error('Error checking ambiguity:api.js line 16', error);
     throw error;
   }
 };
@@ -31,8 +31,9 @@ export const generateTestCases = async (userStory, formattedStory = null) => {
       formatted_story: formattedStory,
     });
     return response.data;
+
   } catch (error) {
-    console.error('Error generating test cases:', error);
+    console.error('Error generating test cases: api.js line 36', error);
     throw error;
   }
 };
