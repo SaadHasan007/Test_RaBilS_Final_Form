@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import UserStoryInput from './components/UserStoryInput';
 import AmbiguityCheck from './components/AmbiguityCheck';
-import TestCasesDisplay, { parseGherkinToSchema } from './components/TestCasesDisplay';
+import TestCasesDisplay from './components/TestCasesDisplay';
 import ExportButtons from './components/ExportButtons';
 import MatrixPanel from './components/MatrixPanel';
 import StatusBadge from './components/StatusBadge';
