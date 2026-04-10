@@ -76,9 +76,10 @@ const CellValue = ({ field, value, priority }) => {
 //   testCaseRows – (optional) pre-structured array from your trained model.
 //                  When provided, `gherkin` is ignored and this data is displayed
 //                  directly. Each object must have the field names in TEST_CASE_SCHEMA.
-const TestCasesDisplay = ({ gherkin, priority, testCaseRows }) => {
-  // Prefer model-supplied rows; fall back to parsing the Gherkin string
-  const rows = testCaseRows ?? parseGherkinToSchema(gherkin);
+
+const TestCasesDisplay = ({gherkin, priority, testCaseRows }) => {
+  
+  const rows = testCaseRows;
 
   if (!rows || rows.length === 0) {
     if (!gherkin) return null;
