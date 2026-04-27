@@ -37,3 +37,33 @@ export const generateTestCases = async (userStory, formattedStory = null) => {
     throw error;
   }
 };
+
+
+export const getTestCaseList = async () =>{
+  try{
+    const response = await axios.get(`${API_BASE_URL}/testcase_list`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching testcases: api.js ~47', error);
+    throw error;
+  }
+};
+
+export const emptyTestCaseList = async () =>{
+  try{
+    await axios.delete(`${API_BASE_URL}/testcase_list`);
+  } catch (error) {
+    console.error('Error clearing list: api.js ~56', error);
+    throw error;
+  }
+};
+
+export const getDublicateTestCases = async () =>{
+  try{
+    result = await axios.get(`${API_BASE_URL}`/dublicates);
+    return result;
+  }catch (error) {
+    console.error('Error identifying dublicates: api.js ~65', error);
+    throw error;
+  }
+};
