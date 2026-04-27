@@ -12,3 +12,8 @@ venv/
 # Node
 node_modules/
 dist/
+
+# models
+backend/models/all-MiniLM-L6-v2/model.safetensors
+backend/models/flan-t5-us-to-ac-v1/model.safetensors
+
