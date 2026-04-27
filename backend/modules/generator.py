@@ -1,8 +1,7 @@
 from transformers import T5Tokenizer, T5ForConditionalGeneration
 import torch 
-from . import nlp
 
-MODEL_PATH = "./models" 
+MODEL_PATH = "./models/flan-t5-us-to-ac-v1" 
 
 try:
     tokenizer = T5Tokenizer.from_pretrained(MODEL_PATH)
@@ -37,9 +36,4 @@ def generate_ac(user_story):
 
     return result
 
-
-def generate_test_cases(user_story): 
-    ac = generate_ac(user_story)
-    result= [user_story,ac]
-    return nlp.nlp_processor(result)
     

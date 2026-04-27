@@ -1,133 +1,292 @@
-import os
 import re
-import json
-from groq import Groq
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Groq-powered ambiguity detection + user story formatter
-# Free tier: 14,400 requests/day, works globally
-# Model: llama-3.3-70b-versatile (very capable, fast)
-# ─────────────────────────────────────────────────────────────────────────────
-
-SYSTEM_PROMPT = """You are an expert requirements analyst specializing in agile user stories.
-Your job is to:
-1. Detect ALL ambiguous, vague, or unclear phrases in the given input.
-2. Rewrite the input as a properly formatted user story using EXACTLY this format:
-
-As a <role>
-I want <some goal>
-So that <benefit>
-
-Rules:
-- If the input is already a well-formed user story, just clean it up and resolve any vague terms.
-- If the input is missing a role, infer the most sensible one from context.
-- If the input is missing a benefit (So that...), infer a reasonable one.
-- Replace every vague term (e.g., "fast", "easy", "soon", "user-friendly", "seamless", "robust") with a specific, measurable alternative.
-- Respond ONLY in valid JSON format with no extra text or markdown code fences:
-
-{
-  "formatted_story": "As a <role>\\nI want <some goal>\\nSo that <benefit>",
-  "ambiguity_notes": [
-    "Replaced 'fast' with 'within 2 seconds' for measurability.",
-    "Added missing role: 'registered user'."
-  ]
-}"""
+import spacy
+from nltk.corpus import wordnet as wn
+import numpy as np
+import torch
+from sentence_transformers import SentenceTransformer, util
+import pickle
 
 
-def _check_ambiguity_with_groq(text: str) -> dict:
-    """
-    Calls the Groq API (LLaMA 3.3 70B) to detect ambiguity and reformat the story.
-    """
-    client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+# rule based ambiguity detection using framework suggested in research papers
+nlp = spacy.load("en_core_web_sm") #English nlp model
+embedding_model = SentenceTransformer('../models/all-MiniLM-L6-v2') #pre-trained AI model that understands sentence meaning
+dataset_embeddings = torch.load("../models/userstory_dataset_embeddings.pt") # Embed all stories (text,text,..) to [[0.3 ,0.34, 0.67],[0.3 ,0.34, 0.67]..]
+# level 1
+VAGUE_WORDS = [
+    "fast", "efficient", "secure", "easy",
+    "good", "better", "bad",
+    "many", "some", "several",
+    "user-friendly", "appropriate", "quick"
+]
+def is_polysemous(word):
+    # Returns True if word has multiple meanings in WordNet
+    synsets = wn.synsets(word)
+    return len(synsets) > 1
+def detect_missing_structure(userStory):
+    issues = []
 
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": text.strip()},
-        ],
-        temperature=0.2,
-        max_tokens=600,
-    )
+    # Pattern checks
+    as_actor = re.search(r"\bas (a|an|the)\b", userStory, re.IGNORECASE)
+    i_want = re.search(r"\bi want\b", userStory,re.IGNORECASE)
+    so_that = re.search(r"\bso that\b", userStory, re.IGNORECASE)
+    has_comma_after_actor = bool(re.search(r"\bas\s+(a|an|the)\s+[^,]+,\s*", userStory, re.IGNORECASE))
+    ends_with_full_stop = userStory.strip().endswith(".")
 
-    content = response.choices[0].message.content.strip()
+    if not as_actor:
+        issues.append("Missing 'As a' section")
 
-    # Strip markdown code fences if model wraps output in ```json ... ```
-    if content.startswith("```"):
-        content = re.sub(r"^```[a-z]*\n?", "", content)
-        content = re.sub(r"\n?```$", "", content)
+    if not i_want:
+        issues.append("Missing 'I want' section")
 
-    try:
-        result = json.loads(content)
-    except json.JSONDecodeError:
-        result = {
-            "formatted_story": content,
-            "ambiguity_notes": ["Could not parse structured notes from AI response."],
+    if not so_that:
+        issues.append("Missing 'So that' section")
+        
+    if not has_comma_after_actor:
+        issues.append("Missing 'Comma'  after actor section")
+
+    if not ends_with_full_stop:
+        issues.append("Missing 'full stop' at end")
+    return {
+        "missing_structure": len(issues) > 0,
+        "issues": issues
+    }
+def detect_grammar_issues(userStory):
+    doc = nlp(userStory)
+    issues = []
+
+    has_verb = any(token.dep_ == "ROOT" and token.pos_ == "VERB" for token in doc)
+    has_subject = any(token.dep_ in ["nsubj", "nsubjpass"] for token in doc)
+    has_object = any(token.dep_ in ["dobj", "pobj"] for token in doc)
+
+    if not has_verb:
+        issues.append("Missing main verb")
+
+    if not has_subject:
+        issues.append("Missing subject")
+
+    if not has_object:
+        issues.append("Missing object or target")
+
+    if len(doc) < 5:
+        issues.append("Sentence too short")
+
+    return {
+        "grammar_issues": len(issues) > 0,
+        "issues": issues
+    }
+
+# level 1 : Lexical Level
+def detect_vagueness(userStory):
+    words = userStory.lower().split()
+
+    vague_found = [w for w in words if w in VAGUE_WORDS]
+    poly_found = [w for w in words if is_polysemous(w)]
+
+    detected = len(vague_found) > 0 or len(poly_found) > 0
+
+    # Confidence logic
+    if vague_found and not poly_found:
+        confidence = 0.85
+    elif poly_found and not vague_found:
+        confidence = 0.55
+    elif vague_found and poly_found:
+        confidence = 0.9
+    else:
+        confidence = 0.0
+
+    return {
+        "type": "vagueness",
+        "detected": detected,
+        "confidence": confidence,
+        "details": {
+            "vague_words": vague_found,
+            "polysemous_words": poly_found
         }
+    }
+# level 2 : Syntactic Level
+def syntactic_inconsistency_detector(userStory):
+    structure = detect_missing_structure(userStory)
+    grammar = detect_grammar_issues(userStory)
 
-    return result
+    detected = structure["missing_structure"] or grammar["grammar_issues"]
 
+    return {
+        "type": "syntax",
+        "detected": detected,
+        "confidence": 0.8 if detected else 0.0,
+        "details": {
+            "structure": structure,
+            "grammar": grammar
+        }
+    }
+# level 3 : Semantic Level
+def detect_insufficiency(target_story, threshold=0.35):
+    target_emb = embedding_model.encode(target_story, convert_to_tensor=True)
+    similarities = util.cos_sim(target_emb, dataset_embeddings)[0].cpu().numpy()
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Fallback: simple regex-based checker (used when GROQ_API_KEY is not set)
-# ─────────────────────────────────────────────────────────────────────────────
+    max_sim = float(np.max(similarities))
+    detected = max_sim < threshold
 
-USER_STORY_PATTERN = re.compile(
-    r"^\s*as\s+a\s+.+\n\s*i\s+want\s+.+\n\s*so\s+that\s+.+",
-    re.IGNORECASE | re.MULTILINE,
-)
+    return {
+        "type": "insufficiency",
+        "detected": detected,
+        "confidence": 0.75 if detected else 0.3,
+        "details": {
+            "max_similarity": max_sim
+        }
+    }
+# level 4 : Pragmatic Level
+def detect_duplication(target_story, all_stories):
+    embeddings = embedding_model.encode(all_stories, convert_to_tensor=True)
+    target_emb = embedding_model.encode(target_story, convert_to_tensor=True)
 
-VAGUE_TERMS = [
-    "fast", "easy", "quickly", "efficiently", "user-friendly",
-    "robust", "seamless", "soon", "simple", "better", "nice",
-    "improved", "smooth",
+    similarities = util.cos_sim(target_emb, embeddings)[0].cpu().numpy()
+
+    max_sim = float(np.max(similarities))
+    index = int(np.argmax(similarities))
+
+    detected = max_sim >= 0.75
+
+    return {
+        "type": "duplication",
+        "detected": detected,
+        "confidence": 0.85 if max_sim >= 0.85 else 0.7 if detected else 0.2,
+        "details": {
+            "similarity": max_sim,
+            "matched_index": index
+        }
+    }
+# fusion level
+def rule_based_ambiguity_detection(target_story, all_stories=[]):
+
+    results = [
+        detect_vagueness(target_story),
+        syntactic_inconsistency_detector(target_story),
+        detect_insufficiency(target_story)
+    ]
+
+    if all_stories:
+        results.append(detect_duplication(target_story, all_stories))
+
+    return {
+        "type": "rule_based",
+        "confidence": 0.8,
+        "results": results
+    }
+
+# ML based ambuguity detection----------------
+
+# Load model and vectorizer
+with open("../models/logistic_regression_model_ambiguty_detection/model.pkl", "rb") as f:
+    model = pickle.load(f)
+with open("../models/logistic_regression_model_ambiguty_detection/vectorizer.pkl", "rb") as f:
+    vectorizer = pickle.load(f)
+    
+label_columns = [
+    "ActorAmbiguity",
+    "SemanticAmbiguity",
+    "ScopeAmbiguity",
+    "AcceptanceAmbiguity",
+    "DependencyAmbiguity",
+    "PriorityAmbiguity"
 ]
 
+#prediction using logistic regression
+def ml_based_ambiguity_prediction(userStory):
+    vec = vectorizer.transform([userStory.lower()])
+    probs = model.predict_proba(vec)
 
-def _check_ambiguity_fallback(text: str) -> dict:
-    notes = []
-    for term in VAGUE_TERMS:
-        pattern = r'\b' + re.escape(term) + r'\b'
-        if re.search(pattern, text, re.IGNORECASE):
-            notes.append(
-                f"Vague term detected: '{term}'. Consider a specific, measurable alternative."
-            )
-    if not USER_STORY_PATTERN.search(text):
-        notes.append(
-            "Input does not follow the standard format: "
-            "'As a <role> / I want <goal> / So that <benefit>'. "
-            "Please reformat your story, or set GROQ_API_KEY to auto-format."
-        )
-    return {"formatted_story": text.strip(), "ambiguity_notes": notes}
+    threshold = 0.3
+
+    predictions = {
+        label: int(p[0][1] > threshold)
+        for label, p in zip(label_columns, probs)
+    }
+
+    detected = any(predictions.values())
+
+    return {
+        "type": "ml_based",
+        "detected": detected,
+        "confidence": 0.65 if detected else 0.3,
+        "details": predictions
+    }
+
+#fusion layer, combine all report
+def generate_final_ambiguity_report(userStory, all_stories=[]):
+
+    rule_report = rule_based_ambiguity_detection(userStory, all_stories)
+    ml_report = ml_based_ambiguity_prediction(userStory)
+
+    # Combine detections
+    combined_detected = (
+        any(r["detected"] for r in rule_report["results"]) 
+        or ml_report["detected"]
+    )
+
+    # Weighted confidence
+    final_confidence = (
+        0.6 * rule_report["confidence"] +
+        0.4 * ml_report["confidence"]
+    )
+
+    return {
+        "user_story": userStory,
+        "ambiguity_detected": combined_detected,
+        "confidence": round(final_confidence, 2),
+        "analysis": {
+            "rule_based": rule_report,
+            "ml_based": ml_report
+        }
+    }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Public API
-# ─────────────────────────────────────────────────────────────────────────────
 
-def check_ambiguity(text: str) -> dict:
-    """
-    If GROQ_API_KEY is set → uses LLaMA 3.3 70B (via Groq) to detect ambiguity
-                             and reformat into 'As a / I want / So that' format.
-    If not set             → falls back to regex detection.
+#remove code below, it was for testing only
+def print_ambiguity_report(report):
+    print("\n" + "="*60)
+    print("USER STORY:")
+    print(report["user_story"])
+    print("="*60)
 
-    Returns: { "formatted_story": str, "ambiguity_notes": [str], "used_ai": bool }
-    """
-    api_key = os.environ.get("GROQ_API_KEY", "").strip()
+    print(f"\nAmbiguity Detected: {report['ambiguity_detected']}")
+    print(f"Overall Confidence: {report['confidence']}")
+    print("-"*60)
 
-    if api_key:
-        try:
-            result = _check_ambiguity_with_groq(text)
-            result["used_ai"] = True
-            return result
-        except Exception as e:
-            result = _check_ambiguity_fallback(text)
-            result["ambiguity_notes"].insert(
-                0, f"⚠ AI check failed ({str(e)}). Falling back to basic detection."
-            )
-            result["used_ai"] = False
-            return result
-    else:
-        result = _check_ambiguity_fallback(text)
-        result["used_ai"] = False
-        return result
+    # 🔵 RULE-BASED
+    print("\n[ RULE-BASED ANALYSIS ]")
+    rb = report["analysis"]["rule_based"]
+
+    for r in rb["results"]:
+        print(f"\n→ Type: {r['type']}")
+        print(f"  Detected: {r['detected']}")
+        print(f"  Confidence: {r['confidence']}")
+
+        # Details (dynamic)
+        for key, value in r["details"].items():
+            print(f"  {key}: {value}")
+
+    print("-"*60)
+
+    # 🟣 ML-BASED
+    print("\n[ ML-BASED ANALYSIS ]")
+    ml = report["analysis"]["ml_based"]
+
+    print(f"Detected: {ml['detected']}")
+    print(f"Confidence: {ml['confidence']}")
+
+    print("\nPredicted Ambiguities:")
+    for key, value in ml["details"].items():
+        print(f"  {key}: {value}")
+
+    print("="*60 + "\n")
+
+# ts="As a user, I would like to access dashboard to track delivery."
+# ats=["As a store owner, I need to track order so that I have better find desired items",
+#      "As a user, I want to open dashboard to track delivery.",
+#      "As a seller, I want to handle orders so that I can complete purchase"]
+# print_ambiguity_report(generate_final_ambiguity_report(ts,ats))
+
+
+#----------------------------------------------------------------------------------------------------------
+

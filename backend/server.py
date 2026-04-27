@@ -3,12 +3,17 @@ load_dotenv()  # Loads OPENAI_API_KEY from backend/.env automatically
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from modules.validator import check_ambiguity
+from modules.ambiguityRemover import check_ambiguity
 from modules.prioritizer import calculate_priority
-from modules.generator import generate_test_cases
+from modules.generator import generate_ac
+from modules.nlp import nlp_processor, reset_ids
+from modules.dublicateRemover import detect_dublicates
+from modules.validator import generate_final_ambiguity_report
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
+
+test_case_list = []
 
 @app.route('/')
 def index():
@@ -25,6 +30,7 @@ def index():
 #     "used_ai": bool           <- whether GPT was used
 #   }
 # ─────────────────────────────────────────────────────────────────────────────
+
 @app.route('/api/ambiguity', methods=['POST'])
 def check_ambiguity_route():
     data = request.json
@@ -35,7 +41,6 @@ def check_ambiguity_route():
 
     result = check_ambiguity(user_story)
     return jsonify(result)
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # POST /api/generate
@@ -50,21 +55,43 @@ def generate_route():
     user_story = data.get('user_story', '')
 
     if not user_story:
-        return jsonify({'error': 'User story is required'}), 400
+        return jsonify({'error': 'User story is required (server.py ~56)'}), 400
 
     # Use the AI-formatted story for generation if it was provided by the
     # ambiguity check step; otherwise fall back to the raw input.
     story_for_generation = data.get('formatted_story') or user_story
 
-    generated_gherkin = generate_test_cases(story_for_generation)
+
+    acceptance_criteria = generate_ac(story_for_generation)
+
     #handle this error , this is due to priorty previusely takes string, but now we giving it a list
     #priority = calculate_priority(generated_gherkin, story_for_generation) 
     priority = calculate_priority(story_for_generation)
+
+    generated_test_cases = nlp_processor(story_for_generation,acceptance_criteria,priority)
+    test_case_list.append(generated_test_cases)
     return jsonify({
-        'gherkin': generated_gherkin,
-        'priority': priority
+        'testcase': generated_test_cases,
     })
 
+@app.route('/api/testcase_list', methods=['GET'])
+def testcase_route():
+    result = test_case_list
+    return jsonify(result)
+
+@app.route('/api/testcase_list', methods=['DELETE'])
+def clear_testcase():
+    reset_ids()
+    global test_case_list
+    test_case_list = []
+    return jsonify({
+        "message": "Test case list cleared"
+    }), 200
+
+@app.route('/api/dublicates',methods=['GET'])
+def identify_dublicates_route():
+    result = detect_dublicates(test_case_list)
+    return jsonify(result)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
