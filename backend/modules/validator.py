@@ -9,8 +9,8 @@ import pickle
 
 # rule based ambiguity detection using framework suggested in research papers
 nlp = spacy.load("en_core_web_sm") #English nlp model
-embedding_model = SentenceTransformer('../models/all-MiniLM-L6-v2') #pre-trained AI model that understands sentence meaning
-dataset_embeddings = torch.load("../models/userstory_dataset_embeddings.pt") # Embed all stories (text,text,..) to [[0.3 ,0.34, 0.67],[0.3 ,0.34, 0.67]..]
+embedding_model = SentenceTransformer('models/all-MiniLM-L6-v2') #pre-trained AI model that understands sentence meaning
+dataset_embeddings = torch.load("models/userstory_dataset_embeddings.pt") # Embed all stories (text,text,..) to [[0.3 ,0.34, 0.67],[0.3 ,0.34, 0.67]..]
 # level 1
 VAGUE_WORDS = [
     "fast", "efficient", "secure", "easy",
@@ -177,9 +177,9 @@ def rule_based_ambiguity_detection(target_story, all_stories=[]):
 # ML based ambuguity detection----------------
 
 # Load model and vectorizer
-with open("../models/logistic_regression_model_ambiguty_detection/model.pkl", "rb") as f:
+with open("models/logistic_regression_model_ambiguty_detection/model.pkl", "rb") as f:
     model = pickle.load(f)
-with open("../models/logistic_regression_model_ambiguty_detection/vectorizer.pkl", "rb") as f:
+with open("models/logistic_regression_model_ambiguty_detection/vectorizer.pkl", "rb") as f:
     vectorizer = pickle.load(f)
     
 label_columns = [
