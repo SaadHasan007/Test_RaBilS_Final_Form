@@ -14,7 +14,7 @@ class GherkinDataset(Dataset):
         self.data = data
         self.tokenizer = tokenizer
         self.max_length = max_length
-
+ 
     def __len__(self):
         return len(self.data)
 
