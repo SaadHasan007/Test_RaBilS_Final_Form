@@ -128,18 +128,29 @@ function App() {
 
         <div className="glass-panel rounded-3xl overflow-hidden p-1">
           <div className="bg-slate-900/50 p-8 sm:p-10 rounded-[1.3rem]">
-
-            <UserStoryInput value={userStory} onChange={(val) => {
-              setUserStory(val);
-              // Reset ambiguity results when the story is edited
-              setFormattedStory(null);
-              setAmbiguityNotes([]);
-            }} />
+            <UserStoryInput
+              value={userStory}
+              onChange={(val) => {
+                setUserStory(val);
+                // Reset ambiguity results when the story is edited
+                setFormattedStory(null);
+                setAmbiguityNotes([]);
+              }}
+            />
 
             {error && (
               <div className="mb-6 p-4 text-red-200 bg-red-900/30 border border-red-500/30 rounded-xl flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 mr-2 text-red-400"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 002 0V6a1 1 0 00-1-1z"
+                    clipRule="evenodd"
+                  />
                 </svg>
                 {error}
               </div>
@@ -147,7 +158,6 @@ function App() {
 
             {/* ── Action buttons ── */}
             <div className="flex flex-col sm:flex-row gap-4 mt-8 justify-center">
-
               {/* Step 1 button: Check & Format */}
               <button
                 onClick={handleCheckAmbiguity}
@@ -158,13 +168,30 @@ function App() {
               >
                 {ambiguityLoading ? (
                   <span className="flex items-center justify-center gap-2">
-                    <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                    <svg
+                      className="animate-spin h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8z"
+                      />
                     </svg>
                     Checking…
                   </span>
-                ) : '🔍 Check Ambiguity'}
+                ) : (
+                  "🔍 Check Ambiguity"
+                )}
               </button>
 
               {/* Step 2 button: Generate */}
@@ -177,7 +204,10 @@ function App() {
               </button>
             </div>
 
-            <StatusBadge isProcessing={loading} onComplete={handleAnimationComplete} />
+            <StatusBadge
+              isProcessing={loading}
+              onComplete={handleAnimationComplete}
+            />
 
             {/* Ambiguity results (formatted story + notes) */}
             <AmbiguityCheck
@@ -189,7 +219,6 @@ function App() {
 
             {allTestCaseRows.length > 0 && (
               <div className="animate-fade-in-up mt-10 border-t border-white/5 pt-10">
-
                 {/* Clear All button */}
                 <div className="flex justify-end mb-4">
                   <button
@@ -203,23 +232,31 @@ function App() {
                 </div>
 
                 {/* Accumulated test case table */}
-                <TestCasesDisplay testCaseRows={allTestCaseRows} priority={latestPriority} />
+                <TestCasesDisplay
+                  testCaseRows={allTestCaseRows}
+                  priority={latestPriority}
+                />
 
                 {/* Use latestGherkin / formattedStory for matrix + export */}
                 <MatrixPanel
                   userStory={formattedStory || userStory}
-                  //testCases={latestGherkin} fix this error so it will handle list 
-                  testCases={"test line app.jsx~ 190"}
+                  //testCases={latestGherkin} fix this error so it will handle list
+                  testCases={"test line app.jsx~ 202"}
                   priority={latestPriority}
                 />
-                <ExportButtons testCases={latestGherkin} userStory={formattedStory || userStory} />
+                <ExportButtons
+                  testCases={allTestCaseRows}
+                  userStory={formattedStory || userStory}
+                />
               </div>
             )}
           </div>
         </div>
 
         <div className="mt-12 text-center text-slate-500 text-sm font-medium">
-          &copy; {new Date().getFullYear()} Test RaBilS. <span className="text-slate-600">|</span> Made By: Saad, Rafi &amp; Bilal ❤
+          &copy; {new Date().getFullYear()} Test RaBilS.{" "}
+          <span className="text-slate-600">|</span> Made By: Saad, Rafi &amp;
+          Bilal ❤
         </div>
       </div>
     </div>
