@@ -102,10 +102,18 @@ function App() {
   };
 
   // ── Clear all accumulated test cases ────────────────────────────────────────
-  const handleClearAll = () => {
-    setAllTestCaseRows([]);
-    setLatestGherkin([]);
-    setLatestPriority('');
+  const handleClearAll = async() => {
+    try{
+      const result = await emptyTestCaseList();
+      //if (result?.message){
+      setAllTestCaseRows([]);
+      setLatestGherkin([]);
+      setLatestPriority("");
+      //}
+    } catch (error) {
+      console.error("error clearing testcase list app.jsx ~110",error)
+      setError("error clearing testcase list app.jsx ~110");
+    }
   };
 
   return (
