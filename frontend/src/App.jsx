@@ -1,36 +1,39 @@
-import React, { useState } from 'react';
-import UserStoryInput from './components/UserStoryInput';
-import AmbiguityCheck from './components/AmbiguityCheck';
-import TestCasesDisplay from './components/TestCasesDisplay';
-import ExportButtons from './components/ExportButtons';
-import MatrixPanel from './components/MatrixPanel';
-import StatusBadge from './components/StatusBadge';
-import { checkAmbiguity, generateTestCases } from './services/api';
+import React, { useState } from "react";
+import UserStoryInput from "./components/UserStoryInput";
+import AmbiguityCheck from "./components/AmbiguityCheck";
+import TestCasesDisplay from "./components/TestCasesDisplay";
+import ExportButtons from "./components/ExportButtons";
+import MatrixPanel from "./components/MatrixPanel";
+import StatusBadge from "./components/StatusBadge";
+import { checkAmbiguity, generateTestCases, emptyTestCaseList, getTestCaseList } from "./services/api";
 
 function App() {
-  const [userStory, setUserStory] = useState('');
+  
+  const [userStory, setUserStory] = useState("");
 
-  // Ambiguity check state
-  const [formattedStory, setFormattedStory] = useState(null);
-  const [ambiguityNotes, setAmbiguityNotes] = useState([]);
-  const [usedAi, setUsedAi] = useState(false);
-  const [ambiguityLoading, setAmbiguityLoading] = useState(false);
+   // Keep the latest gherkin string for ExportButtons / MatrixPanel
+  const [latestGherkin, setLatestGherkin] = useState([]);
+  const [latestPriority, setLatestPriority] = useState("");
 
   // Generation state
   // allTestCaseRows accumulates rows from EVERY generation — never replaced, only appended.
   // Each row already contains a `priority` field so each story's priority is preserved.
   const [allTestCaseRows, setAllTestCaseRows] = useState([]);
-  // Keep the latest gherkin string for ExportButtons / MatrixPanel
-  const [latestGherkin, setLatestGherkin] = useState([]);
-  const [latestPriority, setLatestPriority] = useState('');
-  const [loading, setLoading] = useState(false);
 
+  // Ambiguity check state
+  const [formattedStory, setFormattedStory] = useState(null);
+
+  const [ambiguityNotes, setAmbiguityNotes] = useState([]);
+  const [usedAi, setUsedAi] = useState(false);
+  const [ambiguityLoading, setAmbiguityLoading] = useState(false);
+
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   // ── Step 1: Check & format ambiguity ──────────────────────────────────────
   const handleCheckAmbiguity = async () => {
     if (!userStory.trim()) {
-      setError('Please enter a user story first.');
+      setError("Please enter a user story first.");
       return;
     }
     setError(null);
@@ -44,7 +47,9 @@ function App() {
       setAmbiguityNotes(result.ambiguity_notes || []);
       setUsedAi(result.used_ai || false);
     } catch (err) {
-      setError('Ambiguity check failed. Please make sure the backend is running.');
+      setError(
+        "Ambiguity check failed. Please make sure the backend is running.",
+      );
     } finally {
       setAmbiguityLoading(false);
     }
@@ -53,26 +58,27 @@ function App() {
   // ── Step 2: Generate test cases using the formatted story ─────────────────
   const handleGenerate = async () => {
     if (!userStory.trim()) {
-      setError('Please enter a user story first.');
+      setError("Please enter a user story first.");
       return;
     }
     setError(null);
     setLoading(true);
-
     try {
       const result = await generateTestCases(userStory, formattedStory);
-      setLatestGherkin(result.gherkin);
-      setLatestPriority(result.priority);
+
+      setLatestGherkin(result.testcase);
+
+      // need to remove this statment, priority is already inside gherkin
+      //handle it properly it is used in alot of areas
 
       // Parse gherkin → schema rows, embed priority into each row
-      const newRows =result.gherkin.map((row) => ({
-        ...row,
-        priority: result.priority,
-      }));
+      // const newRows = result.gherkin.map((row) => ({
+      //   ...row,
+      // }));
+      const newRows = result.testcase;
 
-      //const newRows = result.gherkin;
       setAllTestCaseRows((prev) => [...prev, ...newRows]);
-// this code is for ids generation using front end, but id generation already handled by backend 
+      // this code is for ids generation using front end, but id generation already handled by backend
       // Append and globally re-number IDs
       // setAllTestCaseRows((prev) => {
       //   const merged = [...prev, ...newRows];
@@ -83,7 +89,7 @@ function App() {
       //   }));
       // });
     } catch (err) {
-      setError('Failed to generate test cases. app.jsx line ~83');
+      setError("Failed to generate test cases. app.jsx line ~93");
       setLoading(false);
     }
     // setLoading(false) is NOT called here — StatusBadge calls onComplete when its
