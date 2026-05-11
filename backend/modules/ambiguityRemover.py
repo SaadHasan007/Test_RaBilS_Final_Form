@@ -3,6 +3,47 @@ import re
 import json
 from groq import Groq
 
+
+
+def build_llm_prompt(report):
+    user_story = report["user_story"]
+    notes = report["notes"]
+
+    notes_text = "\n".join(f"- {n}" for n in notes)
+
+    prompt = f"""
+You are an expert in software requirements engineering.
+
+Your task is to rewrite the given user story to remove ambiguity based on the provided analysis report.
+
+----------------------------------------
+ORIGINAL USER STORY:
+{user_story}
+
+----------------------------------------
+AMBIGUITY ISSUES IDENTIFIED:
+{notes_text}
+
+----------------------------------------
+INSTRUCTIONS:
+
+1. Rewrite the user story to eliminate ALL listed ambiguity issues.
+2. Preserve the original intent and functionality.
+3. Use clear, precise, and measurable language.
+4. Replace vague terms with specific descriptions.
+5. Ensure proper format:
+
+"As a <specific user>, I want <specific action>, so that <clear benefit>."
+
+6. Do NOT add new features.
+
+----------------------------------------
+OUTPUT:
+Only return the improved user story.
+"""
+
+    return prompt
+
 # # ─────────────────────────────────────────────────────────────────────────────
 # # Groq-powered ambiguity detection + user story formatter
 # # Free tier: 14,400 requests/day, works globally
