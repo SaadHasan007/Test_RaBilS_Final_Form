@@ -69,10 +69,12 @@ export const emptyTestCaseList = async () =>{
   }
 };
 
-export const getDublicateTestCases = async () =>{
+export const getDublicateTestCases = async (userStory) =>{
   try{
-    result = await axios.get(`${API_BASE_URL}`/dublicates);
-    return result;
+    const response = await axios.post(`${API_BASE_URL}`/dublicates, {
+      user_story: userStory,
+    });
+    return response.data;
   }catch (error) {
     console.error('Error identifying dublicates: api.js ~65', error);
     throw error;
