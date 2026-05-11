@@ -44,6 +44,19 @@ def check_ambiguity_route():
     result = check_ambiguity(user_story)
     return jsonify(result)
 
+
+@app.route('/api/xAmbiguityReport', methods=['POST'])
+def get_ambiguity_report_route():
+    data = request.json
+    user_story = data.get('user_story', '')
+
+    if not user_story:
+        return jsonify({'error': 'User story is required'}), 400
+
+    result = generate_final_ambiguity_report(user_story,user_story_list)
+    ambiguity_report.append(jsonify(result))
+    print(jsonify(result))
+    return jsonify(result)
 # ─────────────────────────────────────────────────────────────────────────────
 # POST /api/generate
 # Body: { "user_story": str, "formatted_story": str (optional) }
