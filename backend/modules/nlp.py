@@ -117,9 +117,7 @@ def nlp_processor(us,ac,priority):
         "testCase": result1["goal"],
         "precondition": result2[1]["given"],
         "steps": [
-        result2[1]["when"],
-        "...",
-        "work in progess in nlp module nlp_Processor"
+        result2[1]["when"]
         ],
         "expectedResult": result2[1]["then"],
         "priority": priority
