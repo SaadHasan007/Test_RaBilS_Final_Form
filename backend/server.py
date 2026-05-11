@@ -104,9 +104,15 @@ def clear_testcase():
         "message": "Test case list cleared"
     }), 200
 
-@app.route('/api/dublicates',methods=['GET'])
+@app.route('/api/dublicates',methods=['POST'])
 def identify_dublicates_route():
-    result = detect_dublicates(test_case_list)
+    data = request.json
+    user_story = data.get('user_story', '')
+
+    if not user_story:
+        return jsonify({'error': 'User story is required (server.py ~56)'}), 400
+
+    result = detect_dublicates(user_story,test_case_list)
     return jsonify(result)
 
 if __name__ == '__main__':
