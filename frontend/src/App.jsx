@@ -59,19 +59,40 @@ function App() {
     setAmbiguityLoading(true);
     setFormattedStory(null);
     setAmbiguityNotes([]);
-
     try {
-      const result = await checkAmbiguity(userStory);
-      setFormattedStory(result.formatted_story);
-      setAmbiguityNotes(result.ambiguity_notes || []);
-      setUsedAi(result.used_ai || false);
+      //const resulty = await getDublicateTestCases(userStory);
+      const resultx = await checkAmbiguityx(userStory);
+      // const result = await checkAmbiguity(userStory)
+         //setFormattedStory("cvakl");
+      // setAmbiguityNotes(result.ambiguity_notes || []);
+         setUsedAi(false);
+         console.log("i am called 3")
+        console.log(resultx);
+        console.log("i am called 4")
+        // report = flattenReport(result);
+        // console.log(report);
+        setAmbiguityNotes(resultx.notes || []);
+      // setAmbiguityNotes(result);
     } catch (err) {
       setError(
-        "Ambiguity check failed. Please make sure the backend is running.",
+        "Ambiguity check failed. Please make sure the backend is running. app.jsx ~line 50",
       );
     } finally {
       setAmbiguityLoading(false);
     }
+
+    // try {
+    //   const result = await checkAmbiguity(userStory);
+    //   setFormattedStory(result.formatted_story);
+    //   setAmbiguityNotes(result.ambiguity_notes || []);
+    //   setUsedAi(result.used_ai || false);
+    // } catch (err) {
+    //   setError(
+    //     "Ambiguity check failed. Please make sure the backend is running.",
+    //   );
+    // } finally {
+    //   setAmbiguityLoading(false);
+    // }
   };
 
   // ── Step 2: Generate test cases using the formatted story ─────────────────
