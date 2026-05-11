@@ -30,9 +30,28 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const flattenReport = (obj, prefix = "") => {
+  let result = [];
+
+  for (let key in obj) {
+    const value = obj[key];
+
+    if (typeof value === "object" && value !== null) {
+      // Add parent key as a header
+      result.push(`${prefix}${key}:`);
+      result = result.concat(flattenReport(value, prefix + "  "));
+    } else {
+      result.push(`${prefix}${key}: ${value}`);
+    }
+  }
+
+  return result;
+};
   // ── Step 1: Check & format ambiguity ──────────────────────────────────────
   const handleCheckAmbiguity = async () => {
+    console.log("i am called 1")
     if (!userStory.trim()) {
+      console.log("i am called 2")
       setError("Please enter a user story first.");
       return;
     }
