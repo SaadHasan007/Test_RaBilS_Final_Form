@@ -268,10 +268,33 @@ def ml_based_ambiguity_prediction(userStory):
 
     threshold = 0.3
 
+    notes = []
     predictions = {
         label: int(p[0][1] > threshold)
         for label, p in zip(label_columns, probs)
     }
+
+    #  "ActorAmbiguity",
+    # "SemanticAmbiguity",
+    # "ScopeAmbiguity",
+    # "AcceptanceAmbiguity",
+    # "DependencyAmbiguity",
+    # "PriorityAmbiguity"
+    # "TechnicalAmbiguity"
+    if(predictions["ActorAmbiguity"]):
+        notes.append("unclear which type of user and what access level")
+    if(predictions["SemanticAmbiguity"]):
+        notes.append("Contain Vague verbs")
+    if(predictions["ScopeAmbiguity"]):
+        notes.append("scope is too broad")
+    if(predictions["AcceptanceAmbiguity"]):
+        notes.append("Non measurable acceptance criteria")
+    if(predictions["DependencyAmbiguity"]):
+        notes.append("Unclear which system and what integration dependencies exist")
+    if(predictions["PriorityAmbiguity"]):
+        notes.append("No clear priority or urgency specified")
+    if(predictions["TechnicalAmbiguity"]):
+        notes.append("contain Technical requirement without specific metrics or implementation details")
 
     detected = any(predictions.values())
 
@@ -279,7 +302,8 @@ def ml_based_ambiguity_prediction(userStory):
         "type": "ml_based",
         "detected": detected,
         "confidence": 0.65 if detected else 0.3,
-        "details": predictions
+        "details": predictions,
+        "notes" : notes
     }
 
 #fusion layer, combine all report
@@ -288,6 +312,10 @@ def generate_final_ambiguity_report(userStory, all_stories=[]):
     rule_report = rule_based_ambiguity_detection(userStory, all_stories)
     ml_report = ml_based_ambiguity_prediction(userStory)
 
+
+
+    notes = list(rule_report.get("notes", []))
+    notes.extend(ml_report.get("notes", []))
     # Combine detections
     combined_detected = (
         any(r["detected"] for r in rule_report["results"]) 
