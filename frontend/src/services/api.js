@@ -18,6 +18,17 @@ export const checkAmbiguity = async (userStory) => {
   }
 };
 
+export const checkAmbiguityx = async (userStory) => {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/xAmbiguityReport`, {
+      user_story: userStory,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error checking ambiguity:api.js line 28', error);
+    throw error;
+  }
+};
 /**
  * Calls /api/generate.
  * Pass formattedStory (from the ambiguity step) so the model uses the
