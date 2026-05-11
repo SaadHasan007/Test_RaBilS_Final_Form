@@ -1,11 +1,11 @@
-import React, { useState } from "react";
+import React, {useState} from "react";
 import UserStoryInput from "./components/UserStoryInput";
 import AmbiguityCheck from "./components/AmbiguityCheck";
 import TestCasesDisplay from "./components/TestCasesDisplay";
 import ExportButtons from "./components/ExportButtons";
 import MatrixPanel from "./components/MatrixPanel";
 import StatusBadge from "./components/StatusBadge";
-import { checkAmbiguity, generateTestCases, emptyTestCaseList, getTestCaseList } from "./services/api";
+import {checkAmbiguity, generateTestCases, emptyTestCaseList, getTestCaseList, checkAmbiguityx } from "./services/api";
 
 function App() {
   
