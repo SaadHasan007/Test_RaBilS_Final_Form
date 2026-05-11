@@ -71,7 +71,8 @@ def generate_route():
 
     if not user_story:
         return jsonify({'error': 'User story is required (server.py ~56)'}), 400
-
+    
+    user_story_list.append(data.get('formatted_story') or user_story)
     # Use the AI-formatted story for generation if it was provided by the
     # ambiguity check step; otherwise fall back to the raw input.
     story_for_generation = data.get('formatted_story') or user_story
