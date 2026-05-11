@@ -37,8 +37,9 @@ export const TEST_CASE_SCHEMA = [
 // ─── Priority badge ───────────────────────────────────────────────────────────
 const PriorityBadge = ({ priority }) => {
   const color =
-    priority === 'High'   ? 'text-red-400'    :
-    priority === 'Medium' ? 'text-yellow-400' :
+    priority === 'Very High'   ? 'text-red-400'    :
+    priority === 'High' ? 'text-yellow-400' :
+    priority === 'Medium' ? 'text-blue-400' :
                             'text-green-400';
   return <span className={`font-semibold ${color}`}>{priority}</span>;
 };
