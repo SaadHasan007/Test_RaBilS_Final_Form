@@ -1,5 +1,4 @@
 import re
-from . import prioritizer
 
 #main list of all the test cases 
 
