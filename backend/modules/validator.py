@@ -108,22 +108,31 @@ def detect_grammar_issues(userStory):
 
 # level 1 : Lexical Level
 def detect_vagueness(userStory):
-    words = userStory.lower().split()
+    result = parse_user_story(userStory)
+    goal = result["goal"] or " "
+    benefit = result["benefit"] or " "
+    words = goal +" "+ benefit
+    words = words.lower().split()
+
 
     vague_found = [w for w in words if w in VAGUE_WORDS]
     poly_found = [w for w in words if is_polysemous(w)]
 
     detected = len(vague_found) > 0 or len(poly_found) > 0
-
+    notes = ""
     # Confidence logic
     if vague_found and not poly_found:
-        confidence = 0.85
+        confidence = 0.95
+        notes = f"Vague word(s) found: {vague_found} | Confidence :{confidence*100}%"
     elif poly_found and not vague_found:
         confidence = 0.55
+        notes = f"Vague word(s) found: {poly_found} | Confidence :{confidence*100}%"
     elif vague_found and poly_found:
-        confidence = 0.9
+        confidence = 0.99
+        notes = f"Vague word(s) found: {vague_found} {poly_found} | Confidence :{confidence*100}%"
     else:
-        confidence = 0.0
+        confidence = 0.00
+        notes = ""
 
     return {
         "type": "vagueness",
@@ -132,15 +141,23 @@ def detect_vagueness(userStory):
         "details": {
             "vague_words": vague_found,
             "polysemous_words": poly_found
-        }
+        },
+        "notes" : notes
     }
 # level 2 : Syntactic Level
 def syntactic_inconsistency_detector(userStory):
     structure = detect_missing_structure(userStory)
     grammar = detect_grammar_issues(userStory)
 
-    detected = structure["missing_structure"] or grammar["grammar_issues"]
+    notes = ""
+    if(structure["missing_structure"]):
+        s_confidence = 0.99
+        notes = f"Syntactic Ambiguity | Syntax error(s) found in UserStory | Confidence :{s_confidence*100}%"
+    if(grammar["grammar_issues"]):
+        g_confidence  = 0.80
+        notes = f"Syntactic Ambiguity | Grammer issues(s) found in UserStory | Confidence :{g_confidence*100}%"
 
+    detected = structure["missing_structure"] or grammar["grammar_issues"]
     return {
         "type": "syntax",
         "detected": detected,
@@ -148,7 +165,8 @@ def syntactic_inconsistency_detector(userStory):
         "details": {
             "structure": structure,
             "grammar": grammar
-        }
+        },
+        "notes": notes 
     }
 # level 3 : Semantic Level
 def detect_insufficiency(target_story, threshold=0.35):
@@ -156,15 +174,22 @@ def detect_insufficiency(target_story, threshold=0.35):
     similarities = util.cos_sim(target_emb, dataset_embeddings)[0].cpu().numpy()
 
     max_sim = float(np.max(similarities))
-    detected = max_sim < threshold
+    detected = False
+    confidence = 0.3
+    notes = ""
+    if(max_sim < threshold):
+        detected = True
+        confidence = 0.75
+        notes = f"Semantic Ambiguity | UserStory is out of context | Confidence :{confidence*100}%"
 
     return {
         "type": "insufficiency",
         "detected": detected,
-        "confidence": 0.75 if detected else 0.3,
+        "confidence": confidence,
         "details": {
             "max_similarity": max_sim
-        }
+        },
+        "notes" : notes
     }
 # level 4 : Pragmatic Level
 def detect_duplication(target_story, all_stories):
@@ -176,7 +201,12 @@ def detect_duplication(target_story, all_stories):
     max_sim = float(np.max(similarities))
     index = int(np.argmax(similarities))
 
-    detected = max_sim >= 0.75
+    detected = False
+    notes = ""
+    if(max_sim >= 0.75):
+         detected = True
+         confidence = 0.85
+         notes = f"Pragmatic Ambiguity | Redundant UserStory Detected | Confidence :{confidence*100}%"
 
     return {
         "type": "duplication",
@@ -185,11 +215,12 @@ def detect_duplication(target_story, all_stories):
         "details": {
             "similarity": max_sim,
             "matched_index": index
-        }
+        },
+        "notes": notes
     }
 # fusion level
 def rule_based_ambiguity_detection(target_story, all_stories=[]):
-
+    notes = []
     results = [
         detect_vagueness(target_story),
         syntactic_inconsistency_detector(target_story),
@@ -198,12 +229,19 @@ def rule_based_ambiguity_detection(target_story, all_stories=[]):
 
     if all_stories:
         results.append(detect_duplication(target_story, all_stories))
+    for r in results:
+        notes.append(r["notes"])
 
     return {
         "type": "rule_based",
         "confidence": 0.8,
-        "results": results
+        "results": results,
+        "notes" : notes
     }
+
+
+
+
 
 # ML based ambuguity detection----------------
 
