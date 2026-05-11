@@ -335,53 +335,53 @@ def generate_final_ambiguity_report(userStory, all_stories=[]):
         "analysis": {
             "rule_based": rule_report,
             "ml_based": ml_report
-        }
+        },
+        "notes" : notes 
     }
 
+# #remove code below, it was for testing only
+# def print_ambiguity_report(report):
+#     print("\n" + "="*60)
+#     print("USER STORY:")
+#     print(report["user_story"])
+#     print("="*60)
 
+#     print(f"\nAmbiguity Detected: {report['ambiguity_detected']}")
+#     print(f"Overall Confidence: {report['confidence']}")
+#     print("-"*60)
 
-#remove code below, it was for testing only
-def print_ambiguity_report(report):
-    print("\n" + "="*60)
-    print("USER STORY:")
-    print(report["user_story"])
-    print("="*60)
+#     # 🔵 RULE-BASED
+#     print("\n[ RULE-BASED ANALYSIS ]")
+#     rb = report["analysis"]["rule_based"]
 
-    print(f"\nAmbiguity Detected: {report['ambiguity_detected']}")
-    print(f"Overall Confidence: {report['confidence']}")
-    print("-"*60)
+#     for r in rb["results"]:
+#         print(f"\n→ Notes: {r['notes']}")
+#         print(f"\n→ Type: {r['type']}")
+#         print(f"  Detected: {r['detected']}")
+#         print(f"  Confidence: {r['confidence']}")
 
-    # 🔵 RULE-BASED
-    print("\n[ RULE-BASED ANALYSIS ]")
-    rb = report["analysis"]["rule_based"]
+#         # Details (dynamic)
+#         for key, value in r["details"].items():
+#             print(f"  {key}: {value}")
 
-    for r in rb["results"]:
-        print(f"\n→ Type: {r['type']}")
-        print(f"  Detected: {r['detected']}")
-        print(f"  Confidence: {r['confidence']}")
+#     print("-"*60)
 
-        # Details (dynamic)
-        for key, value in r["details"].items():
-            print(f"  {key}: {value}")
+#     # 🟣 ML-BASED
+#     print("\n[ ML-BASED ANALYSIS ]")
+#     ml = report["analysis"]["ml_based"]
+#     print(f"\n→ Notes: {r['notes']}")
+#     print(f"Detected: {ml['detected']}")
+#     print(f"Confidence: {ml['confidence']}")
 
-    print("-"*60)
+#     print("\nPredicted Ambiguities:")
+#     for key, value in ml["details"].items():
+#         print(f"  {key}: {value}")
 
-    # 🟣 ML-BASED
-    print("\n[ ML-BASED ANALYSIS ]")
-    ml = report["analysis"]["ml_based"]
+#     print("="*60 + "\n")
 
-    print(f"Detected: {ml['detected']}")
-    print(f"Confidence: {ml['confidence']}")
-
-    print("\nPredicted Ambiguities:")
-    for key, value in ml["details"].items():
-        print(f"  {key}: {value}")
-
-    print("="*60 + "\n")
-
-# ts="As a user, I would like to access dashboard to track delivery."
-# ats=["As a store owner, I need to track order so that I have better find desired items",
-#      "As a user, I want to open dashboard to track delivery.",
+# ts="As a user, I want  to access fast dashboard so that i can track delivery."
+# ats=["As a store owner, I want to track order so that I have better find desired items",
+#      "As a user, I want to open dashboard so that i can track delivery.",
 #      "As a seller, I want to handle orders so that I can complete purchase"]
 # print_ambiguity_report(generate_final_ambiguity_report(ts,ats))
 
