@@ -257,7 +257,8 @@ label_columns = [
     "ScopeAmbiguity",
     "AcceptanceAmbiguity",
     "DependencyAmbiguity",
-    "PriorityAmbiguity"
+    "PriorityAmbiguity",
+    "TechnicalAmbiguity"
 ]
 
 #prediction using logistic regression
