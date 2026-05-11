@@ -14,6 +14,8 @@ app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
 test_case_list = []
+ambiguity_report = []
+user_story_list = []
 
 @app.route('/')
 def index():
