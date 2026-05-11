@@ -1,27 +1,58 @@
 import re
 import spacy
-from nltk.corpus import wordnet as wn
+from nltk.corpus import wordnet as wn ,stopwords
 import numpy as np
 import torch
 from sentence_transformers import SentenceTransformer, util
 import pickle
-
+from modules.nlp import parse_user_story
 
 # rule based ambiguity detection using framework suggested in research papers
 nlp = spacy.load("en_core_web_sm") #English nlp model
 embedding_model = SentenceTransformer('models/all-MiniLM-L6-v2') #pre-trained AI model that understands sentence meaning
 dataset_embeddings = torch.load("models/userstory_dataset_embeddings.pt") # Embed all stories (text,text,..) to [[0.3 ,0.34, 0.67],[0.3 ,0.34, 0.67]..]
-# level 1
+
 VAGUE_WORDS = [
     "fast", "efficient", "secure", "easy",
     "good", "better", "bad",
     "many", "some", "several",
     "user-friendly", "appropriate", "quick"
 ]
-def is_polysemous(word):
-    # Returns True if word has multiple meanings in WordNet
-    synsets = wn.synsets(word)
-    return len(synsets) > 1
+SAFE_WORDS = {
+    "user", "system", "dashboard", "data", "account",
+    "login", "logout", "access", "track","delivery"
+}
+
+
+STOPWORDS = set(stopwords.words('english'))
+
+def is_polysemous(userStory):
+    doc = nlp(userStory.lower())
+
+    poly_words = []
+
+    for token in doc:
+        word = token.text
+
+        # Skip stopwords
+        if word in STOPWORDS:
+            continue
+
+        # Skip safe words
+        if word in SAFE_WORDS:
+            continue
+
+        # Only important POS
+        if token.pos_ not in ["NOUN", "VERB", "ADJ"]:
+            continue
+
+        synsets = wn.synsets(word)
+
+        # Strict threshold
+        if len(synsets) >= 3:
+            poly_words.append(word)
+
+    return poly_words
 def detect_missing_structure(userStory):
     issues = []
 
