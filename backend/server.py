@@ -1,3 +1,4 @@
+import os
 from dotenv import load_dotenv
 load_dotenv()  # Loads OPENAI_API_KEY from backend/.env automatically
 
@@ -11,7 +12,16 @@ from modules.dublicateRemover import detect_dublicates
 from modules.validator import generate_final_ambiguity_report
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+
+# Allow CORS from localhost (dev) and deployed frontend (production)
+allowed_origins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+]
+frontend_url = os.environ.get("FRONTEND_URL", "")
+if frontend_url:
+    allowed_origins.append(frontend_url)
+CORS(app, origins=allowed_origins if frontend_url else "*")
 
 test_case_list = []
 ambiguity_report = []
@@ -116,4 +126,6 @@ def identify_dublicates_route():
     return jsonify(result)
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_DEBUG', 'true').lower() == 'true'
+    app.run(debug=debug, host='0.0.0.0', port=port)
