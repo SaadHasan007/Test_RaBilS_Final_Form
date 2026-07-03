@@ -5,22 +5,26 @@ import TestCasesDisplay from "./components/TestCasesDisplay";
 import ExportButtons from "./components/ExportButtons";
 import MatrixPanel from "./components/MatrixPanel";
 import StatusBadge from "./components/StatusBadge";
-import {checkAmbiguity, generateTestCases, emptyTestCaseList, getTestCaseList, removeAmbiguity } from "./services/api";
+import {checkAmbiguity, generateTestCases, emptyTestCaseList, getTestCaseList, checkAmbiguityx } from "./services/api";
 
 function App() {
   
   const [userStory, setUserStory] = useState("");
-  const [formattedStory, setFormattedStory] = useState(null);
 
+   // Keep the latest gherkin string for ExportButtons / MatrixPanel
   const [latestGherkin, setLatestGherkin] = useState([]);
-  const [allTestCaseRows, setAllTestCaseRows] = useState([]);
   const [latestPriority, setLatestPriority] = useState("");
-  
-  
+
+  // Generation state
+  // allTestCaseRows accumulates rows from EVERY generation — never replaced, only appended.
+  // Each row already contains a `priority` field so each story's priority is preserved.
+  const [allTestCaseRows, setAllTestCaseRows] = useState([]);
+
+  // Ambiguity check state
+  const [formattedStory, setFormattedStory] = useState(null);
   const [ambiguityReport, setAmbiguityReport] = useState([]);
+
   const [ambiguityNotes, setAmbiguityNotes] = useState([]);
-
-
   const [usedAi, setUsedAi] = useState(false);
   const [ambiguityLoading, setAmbiguityLoading] = useState(false);
 
@@ -30,51 +34,25 @@ function App() {
 
   // ── Step 1: Check & format ambiguity ──────────────────────────────────────
 
-  const handleAmbiguity = async () => {
+  const handleAmbiguity = () => {
     if (!userStory.trim()) {
       setError("Please enter a user story first.");
       return;
-    }
-    console.log("sequence test: 4")
     setError(null);
     setAmbiguityLoading(true);
     setFormattedStory(null);
     setAmbiguityNotes([]);
-
-    console.log("sequence test: 5")
-
-    const notes = await handleCheckAmbiguity();
-    
-    console.log("sequence test: 8")
-    console.log("this line executed app.jsx ~line 47", notes?.length > 0);
-
-    if(notes?.length > 0){
-       console.log("this line executed app.jsx ~line 49");
-       console.log("sequence test: 9")
-
-         const processedStory = await handleRemoveAmbiguity(notes);
-         console.log("9--12 processedStroy:", processedStory);
-         setAmbiguityLoading(false);
-         console.log("sequence test: 12")
-         return processedStory;
+    handleCheckAmbiguity();
+    if(ambiguityReport.length > 0){
+    handleRemoveAmbiguity();
     }
-      setAmbiguityLoading(false);
-      console.log("run test line 62")
-      return;
-  };
+  }};
   const handleCheckAmbiguity = async () => {
     try {
       //const resulty = await getDublicateTestCases(userStory);
-      console.log("sequence test: 6")
-
       const result = await checkAmbiguity(userStory);
       setAmbiguityNotes(result.notes || []);
-      setAmbiguityReport(result.notes || []);
-
-      console.log("sequence test: 7")
-
-      return result.notes || [];
-
+      setAmbiguityReport(result || []);
     } catch (err){
       setError(
         "Ambiguity check failed. Please make sure the backend is running. app.jsx ~line 50",
@@ -95,16 +73,12 @@ function App() {
     //   setAmbiguityLoading(false);
     // }
   };
-  const handleRemoveAmbiguity = async (report) => {
-    console.log("sequence test: 10")
+  const handleRemoveAmbiguity = async () => {
     try{
-    const result = await removeAmbiguity(userStory, report);
-    console.log("sequence test: 11")
-        console.log("this line executed app.jsx ~line 80");
-        setFormattedStory(result.processed_story);
+    const result = await removeAmbiguity(ambiguityNotes)
+        setFormattedStory(result.formatted_story);
         setAmbiguityNotes(result.ambiguity_notes || []);
-        setUsedAi(result.used_ai || false);
-        return result.processed_story;
+        setUsedAi(true);
     } catch (err){
       setError(
         "Ambiguity removal failed. Please make sure the backend is running. app.jsx ~line 80",
@@ -117,34 +91,27 @@ function App() {
 
   // ── Step 2: Generate test cases using the formatted story ─────────────────
   const handleGenerate = async () => {
-    console.log("sequence test: 1")
     if (!userStory.trim()) {
       setError("Please enter a user story first.");
       return;
     }
-    console.log("sequence test: 2")
-    let processedStory = formattedStory;
-    if(processedStory == null){
-      console.log("sequence test: 3")
-      processedStory = await handleAmbiguity(); // Ensure ambiguity is checked and story is formatted before generation
-      setFormattedStory(processedStory);
-      console.log("sequence test: 13")
-    }
-    console.log("sequence test: 14")
     setError(null);
     setLoading(true);
     try {
-      console.log("sequence test: 15")
-      console.log("15 : story sent to generation engine ;\n" , processedStory ," \n ", userStory);
-      const result = await generateTestCases(userStory, processedStory);
-      console.log("sequence test: 16")
+      const result = await generateTestCases(userStory, formattedStory);
 
       setLatestGherkin(result.testcase);
+
+      // need to remove this statment, priority is already inside gherkin
+      //handle it properly it is used in alot of areas
+
+      // Parse gherkin → schema rows, embed priority into each row
+      // const newRows = result.gherkin.map((row) => ({
+      //   ...row,
+      // }));
       const newRows = result.testcase;
 
       setAllTestCaseRows((prev) => [...prev, ...newRows]);
-      setLoading(false);
-      setAmbiguityLoading(false);
       // this code is for ids generation using front end, but id generation already handled by backend
       // Append and globally re-number IDs
       // setAllTestCaseRows((prev) => {
@@ -163,12 +130,6 @@ function App() {
     // animation finishes, which then calls handleAnimationComplete below.
   };
 
-
-
-
-
-
-
   const handleAnimationComplete = () => {
     setLoading(false);
     // showResults is now derived — table shows whenever allTestCaseRows is non-empty
@@ -182,11 +143,6 @@ function App() {
       setAllTestCaseRows([]);
       setLatestGherkin([]);
       setLatestPriority("");
-      setAmbiguityLoading(false);
-      setLoading(false);
-      setFormattedStory(null);
-      setAmbiguityNotes([]);
-      setError("All test cases cleared successfully.");
       //}
     } catch (error) {
       console.error("error clearing testcase list app.jsx ~110",error)
@@ -205,15 +161,17 @@ function App() {
         </div>
 
         <div className="glass-panel rounded-3xl overflow-hidden p-1">
-  
           <div className="bg-slate-900/50 p-8 sm:p-10 rounded-[1.3rem]">
-            <UserStoryInput value={userStory} onChange={(val) => {
+            <UserStoryInput
+              value={userStory}
+              onChange={(val) => {
                 setUserStory(val);
                 // Reset ambiguity results when the story is edited
                 setFormattedStory(null);
                 setAmbiguityNotes([]);
               }}
             />
+
             {error && (
               <div className="mb-6 p-4 text-red-200 bg-red-900/30 border border-red-500/30 rounded-xl flex items-center">
                 <svg
@@ -234,7 +192,7 @@ function App() {
 
             {/* ── Action buttons ── */}
             <div className="flex flex-col sm:flex-row gap-4 mt-8 justify-center">
-              {/* Step 1 button: analyze and process story */}
+              {/* Step 1 button: Check & Format */}
               <button
                 onClick={handleAmbiguity}
                 disabled={ambiguityLoading || loading}
@@ -315,10 +273,10 @@ function App() {
 
                 {/* Use latestGherkin / formattedStory for matrix + export */}
                 <MatrixPanel
-                  //userStory={formattedStory || userStory}
+                  userStory={formattedStory || userStory}
                   //testCases={latestGherkin} fix this error so it will handle list
-                  testCases={allTestCaseRows}
-                 // priority={latestPriority}
+                  testCases={"test line app.jsx~ 202"}
+                  priority={latestPriority}
                 />
                 <ExportButtons
                   testCases={allTestCaseRows}
@@ -329,7 +287,6 @@ function App() {
           </div>
         </div>
 
-        {/* footer */}
         <div className="mt-12 text-center text-slate-500 text-sm font-medium">
           &copy; {new Date().getFullYear()} Test RaBilS.{" "}
           <span className="text-slate-600">|</span> Made By: Saad, Rafi &amp;

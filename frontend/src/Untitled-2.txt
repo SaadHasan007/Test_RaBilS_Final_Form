@@ -1,3 +1,190 @@
+
+
+
+
+==================
+
+
+import os
+import re
+import json
+from groq import Groq
+
+
+
+def build_llm_prompt(report):
+
+    user_story = report["user_story"]
+    notes = report["notes"]
+
+    notes_text = "\n".join(f"- {n}" for n in notes)
+
+    prompt = f"""
+You are an expert requirements analyst specializing in agile user stories.
+
+Your job is to rewrite the given user story to remove ambiguity based on the provided user story analysis report.
+
+----------------------------------------
+ORIGINAL USER STORY:
+{user_story}
+
+----------------------------------------
+AMBIGUITY ISSUES IDENTIFIED: (analysis report)
+{notes_text}
+
+----------------------------------------
+INSTRUCTIONS:
+
+1. Rewrite the user story to eliminate ALL listed ambiguity issues.
+2. Preserve the original intent and functionality.
+3. Use clear, precise, and measurable language.
+4. Do NOT add unrelated features or assumptions.
+5. Keep the rewritten story concise and professional.
+
+----------------------------------------
+OUTPUT:
+- Respond ONLY in valid JSON format with no extra text or markdown code fences:
+{{"processed_story": "As a <specific role>, I want <specific goal>, so that <clear benefit>.",
+    "ambiguity_notes": [
+    "Replaced 'fast' with 'within 2 seconds' for measurability.",
+    "Added missing role: 'registered user'."]}}
+        """ 
+    return prompt
+
+# # ─────────────────────────────────────────────────────────────────────────────
+# # Groq-powered ambiguity detection + user story formatter
+# # Free tier: 14,400 requests/day, works globally
+# # Model: llama-3.3-70b-versatile (very capable, fast)
+# # ─────────────────────────────────────────────────────────────────────────────
+
+# SYSTEM_PROMPT = """You are an expert requirements analyst specializing in agile user stories.
+# Your job is to:
+# 1. Detect ALL ambiguous, vague, or unclear phrases in the given input.
+# 2. Rewrite the input as a properly formatted user story using EXACTLY this format:
+
+# As a <role>,
+# I want <some goal>
+# So that <benefit>.
+
+# # Rules:
+# # - If the input is already a well-formed user story, just clean it up and resolve any vague terms.
+# # - If the input is missing a role, infer the most sensible one from context.
+# # - If the input is missing a benefit (So that...), infer a reasonable one.
+# # - Replace every vague term (e.g., "fast", "easy", "soon", "user-friendly", "seamless", "robust") with a specific, measurable alternative.
+# # - Respond ONLY in valid JSON format with no extra text or markdown code fences:
+
+# # {
+# #   "formatted_story": "As a <role>\\nI want <some goal>\\nSo that <benefit>",
+# #   "ambiguity_notes": [
+# #     "Replaced 'fast' with 'within 2 seconds' for measurability.",
+# #     "Added missing role: 'registered user'."
+# #   ]
+# # }"""
+
+
+def _remove_ambiguity_with_groq(text, ambiguity_report) -> dict:
+
+    SYSTEM_PROMPT = build_llm_prompt({"user_story": text, "notes": ambiguity_report})
+    """
+    Calls the Groq API (LLaMA 3.3 70B) to detect ambiguity and reformat the story.
+    """
+    client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": text.strip()},
+        ],
+        temperature=0.2,
+        max_tokens=600,
+    )
+
+    content = response.choices[0].message.content.strip()
+
+    # Strip markdown code fences if model wraps output in ```json ... ```
+    if content.startswith("```"):
+        content = re.sub(r"^```[a-z]*\n?", "", content)
+        content = re.sub(r"\n?```$", "", content)
+
+    try:
+        result = json.loads(content)
+
+    except json.JSONDecodeError:
+        result = {
+            "formatted_story": content,
+            "ambiguity_notes": ["Could not parse structured notes from AI response."],
+        }
+
+    return result
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Public API
+# ─────────────────────────────────────────────────────────────────────────────
+
+def remove_ambiguity(text, ambiguity_report) -> dict:
+    """
+    If GROQ_API_KEY is set → uses LLaMA 3.3 70B (via Groq) to detect ambiguity
+                             and reformat into 'As a / I want / So that' format.
+    Returns: { "formatted_story": str, "ambiguity_notes": [str], "used_ai": bool }
+    """
+    result = {
+        "formatted_story": text,
+        "ambiguity_notes": [],
+        "used_ai": False
+    }
+    api_key = os.environ.get("GROQ_API_KEY", "").strip()
+
+
+    if api_key:
+        try:
+            result = _remove_ambiguity_with_groq(text, ambiguity_report)
+            result["used_ai"] = True
+            return result
+        except Exception as e:
+            result["ambiguity_notes"].insert(
+                0, f"⚠ AI check failed ({str(e)})."
+            )
+            result["used_ai"] = False
+            return result
+    else:
+        result["ambiguity_notes"].insert(
+                0, f"⚠ AI check failed.Make sure Grok API key is set. errorCode: arl141")
+        result["used_ai"] = False
+        return result
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=========================
+
+
+
+
+
+
+
+
+
 import React, {useState} from "react";
 import UserStoryInput from "./components/UserStoryInput";
 import AmbiguityCheck from "./components/AmbiguityCheck";
@@ -10,17 +197,21 @@ import {checkAmbiguity, generateTestCases, emptyTestCaseList, getTestCaseList, r
 function App() {
   
   const [userStory, setUserStory] = useState("");
-  const [formattedStory, setFormattedStory] = useState(null);
 
+   // Keep the latest gherkin string for ExportButtons / MatrixPanel
   const [latestGherkin, setLatestGherkin] = useState([]);
-  const [allTestCaseRows, setAllTestCaseRows] = useState([]);
   const [latestPriority, setLatestPriority] = useState("");
-  
-  
+
+  // Generation state
+  // allTestCaseRows accumulates rows from EVERY generation — never replaced, only appended.
+  // Each row already contains a `priority` field so each story's priority is preserved.
+  const [allTestCaseRows, setAllTestCaseRows] = useState([]);
+
+  // Ambiguity check state
+  const [formattedStory, setFormattedStory] = useState(null);
   const [ambiguityReport, setAmbiguityReport] = useState([]);
+
   const [ambiguityNotes, setAmbiguityNotes] = useState([]);
-
-
   const [usedAi, setUsedAi] = useState(false);
   const [ambiguityLoading, setAmbiguityLoading] = useState(false);
 
@@ -40,41 +231,28 @@ function App() {
     setAmbiguityLoading(true);
     setFormattedStory(null);
     setAmbiguityNotes([]);
-
     console.log("sequence test: 5")
-
-    const notes = await handleCheckAmbiguity();
-    
+    const result = await handleCheckAmbiguity();
     console.log("sequence test: 8")
-    console.log("this line executed app.jsx ~line 47", notes?.length > 0);
-
-    if(notes?.length > 0){
+    console.log("this line executed app.jsx ~line 47", result?.length > 0);
+    //if(ambiguityReport.length > 0){
+    if(result?.length > 0){
        console.log("this line executed app.jsx ~line 49");
        console.log("sequence test: 9")
-
-         const processedStory = await handleRemoveAmbiguity(notes);
-         console.log("9--12 processedStroy:", processedStory);
-         setAmbiguityLoading(false);
+         const processedStory = await handleRemoveAmbiguity(result);
          console.log("sequence test: 12")
          return processedStory;
     }
-      setAmbiguityLoading(false);
-      console.log("run test line 62")
-      return;
   };
   const handleCheckAmbiguity = async () => {
     try {
       //const resulty = await getDublicateTestCases(userStory);
       console.log("sequence test: 6")
-
       const result = await checkAmbiguity(userStory);
       setAmbiguityNotes(result.notes || []);
       setAmbiguityReport(result.notes || []);
-
       console.log("sequence test: 7")
-
       return result.notes || [];
-
     } catch (err){
       setError(
         "Ambiguity check failed. Please make sure the backend is running. app.jsx ~line 50",
@@ -101,10 +279,10 @@ function App() {
     const result = await removeAmbiguity(userStory, report);
     console.log("sequence test: 11")
         console.log("this line executed app.jsx ~line 80");
-        setFormattedStory(result.processed_story);
+        setFormattedStory(result.formatted_story);
         setAmbiguityNotes(result.ambiguity_notes || []);
-        setUsedAi(result.used_ai || false);
-        return result.processed_story;
+        setUsedAi(true);
+        return result.formattedStory;
     } catch (err){
       setError(
         "Ambiguity removal failed. Please make sure the backend is running. app.jsx ~line 80",
@@ -124,7 +302,7 @@ function App() {
     }
     console.log("sequence test: 2")
     let processedStory = formattedStory;
-    if(processedStory == null){
+    if(formattedStory == null){
       console.log("sequence test: 3")
       processedStory = await handleAmbiguity(); // Ensure ambiguity is checked and story is formatted before generation
       setFormattedStory(processedStory);
@@ -135,7 +313,7 @@ function App() {
     setLoading(true);
     try {
       console.log("sequence test: 15")
-      console.log("15 : story sent to generation engine ;\n" , processedStory ," \n ", userStory);
+      console.log("15 : story sent to generation engine ;\n" , formattedStory ," \n ", userStory);
       const result = await generateTestCases(userStory, processedStory);
       console.log("sequence test: 16")
 
@@ -143,8 +321,6 @@ function App() {
       const newRows = result.testcase;
 
       setAllTestCaseRows((prev) => [...prev, ...newRows]);
-      setLoading(false);
-      setAmbiguityLoading(false);
       // this code is for ids generation using front end, but id generation already handled by backend
       // Append and globally re-number IDs
       // setAllTestCaseRows((prev) => {
@@ -165,10 +341,6 @@ function App() {
 
 
 
-
-
-
-
   const handleAnimationComplete = () => {
     setLoading(false);
     // showResults is now derived — table shows whenever allTestCaseRows is non-empty
@@ -182,11 +354,6 @@ function App() {
       setAllTestCaseRows([]);
       setLatestGherkin([]);
       setLatestPriority("");
-      setAmbiguityLoading(false);
-      setLoading(false);
-      setFormattedStory(null);
-      setAmbiguityNotes([]);
-      setError("All test cases cleared successfully.");
       //}
     } catch (error) {
       console.error("error clearing testcase list app.jsx ~110",error)
@@ -205,15 +372,17 @@ function App() {
         </div>
 
         <div className="glass-panel rounded-3xl overflow-hidden p-1">
-  
           <div className="bg-slate-900/50 p-8 sm:p-10 rounded-[1.3rem]">
-            <UserStoryInput value={userStory} onChange={(val) => {
+            <UserStoryInput
+              value={userStory}
+              onChange={(val) => {
                 setUserStory(val);
                 // Reset ambiguity results when the story is edited
                 setFormattedStory(null);
                 setAmbiguityNotes([]);
               }}
             />
+
             {error && (
               <div className="mb-6 p-4 text-red-200 bg-red-900/30 border border-red-500/30 rounded-xl flex items-center">
                 <svg
@@ -234,7 +403,7 @@ function App() {
 
             {/* ── Action buttons ── */}
             <div className="flex flex-col sm:flex-row gap-4 mt-8 justify-center">
-              {/* Step 1 button: analyze and process story */}
+              {/* Step 1 button: Check & Format */}
               <button
                 onClick={handleAmbiguity}
                 disabled={ambiguityLoading || loading}
@@ -315,10 +484,10 @@ function App() {
 
                 {/* Use latestGherkin / formattedStory for matrix + export */}
                 <MatrixPanel
-                  //userStory={formattedStory || userStory}
+                  userStory={formattedStory || userStory}
                   //testCases={latestGherkin} fix this error so it will handle list
-                  testCases={allTestCaseRows}
-                 // priority={latestPriority}
+                  testCases={"test line app.jsx~ 202"}
+                  priority={latestPriority}
                 />
                 <ExportButtons
                   testCases={allTestCaseRows}
@@ -329,7 +498,6 @@ function App() {
           </div>
         </div>
 
-        {/* footer */}
         <div className="mt-12 text-center text-slate-500 text-sm font-medium">
           &copy; {new Date().getFullYear()} Test RaBilS.{" "}
           <span className="text-slate-600">|</span> Made By: Saad, Rafi &amp;

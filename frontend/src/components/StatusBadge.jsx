@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 
 const steps = [
-    "Ambiguity Detecting",
-    "Ambiguity Detected",
-    "Ambiguity Removing",
+    "Analyzing Requirements",
+    "Vulnerability Detected",
+    "Removing Vulnerability",
     "Test Case Generating",
     "Test Case Optimizing",
-    "Finalizing Test Cases"
+    "Finalizing Test Cases",
+    " "
 ];
 
 const StatusBadge = ({ isProcessing, onComplete }) => {

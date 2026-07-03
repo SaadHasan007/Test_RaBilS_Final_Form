@@ -1,0 +1,7 @@
+update prority code to handle update gherkin format
+in priortizer.py 
+in server.py line ~60 
+
+update matrix code to handle updated gherkin format
+in matrixpanel.jsx
+in app.jsx line~197

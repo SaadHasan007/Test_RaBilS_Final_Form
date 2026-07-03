@@ -94,7 +94,6 @@ const TestCasesDisplay = ({gherkin, priority, testCaseRows }) => {
       </div>
     );
   }
-
   return (
     <div className="mt-8">
       <h2 className="text-3xl font-bold text-white text-center mb-8 tracking-tight">
@@ -153,7 +152,7 @@ const TestCasesDisplay = ({gherkin, priority, testCaseRows }) => {
                       <CellValue
                         field={field}
                         value={row[field]}
-                        priority={row.priority ?? priority}
+                        priority={row.priority ?? "Error:TCD156"}
                       />
                     </td>
                   ))}

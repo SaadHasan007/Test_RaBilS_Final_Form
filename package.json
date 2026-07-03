@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.7"
+  },
+  "devDependencies": {
+    "eslint": "^10.4.0",
+    "eslint-plugin-complexity": "^1.0.2"
+  }
+}

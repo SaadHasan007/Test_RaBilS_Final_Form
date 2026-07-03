@@ -6,21 +6,26 @@ const API_BASE_URL = 'http://localhost:5000/api';
  * Calls /api/ambiguity.
  * Returns: { formatted_story, ambiguity_notes, used_ai }
  */
-export const checkAmbiguity = async (userStory) => {
+export const removeAmbiguity = async (userStory, ambiguityReport) => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/ambiguity`, {
+    console.log("this line executed api.js ~line 11");
+    const response = await axios.post(`${API_BASE_URL}/ambiguityRemove`, {
       user_story: userStory,
+      ambiguity_report: ambiguityReport
     });
+    console.log("this line executed api.js ~line 14",userStory, ambiguityReport);
+    console.log("this line executed api.js ~line 15", response.data);
     return response.data;
   } catch (error) {
-    console.error('Error checking ambiguity:api.js line 16', error);
+    console.error('Error removing ambiguity:api.js line 16', error);
+    console.log("this line executed api.js ~line 17");
     throw error;
   }
 };
 
-export const checkAmbiguityx = async (userStory) => {
+export const checkAmbiguity = async (userStory) => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/xAmbiguityReport`, {
+    const response = await axios.post(`${API_BASE_URL}/ambiguityReport`, {
       user_story: userStory,
     });
     return response.data;

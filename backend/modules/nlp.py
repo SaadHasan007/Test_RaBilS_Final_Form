@@ -1,6 +1,5 @@
 import re
 
-#main list of all the test cases 
 
 #counter used to generate IDs 
 req_id_count= 0
@@ -100,11 +99,12 @@ def nlp_processor(us,ac,priority):
     result2 = parse_acceptance_criteria(acceptance_criteria) 
 
     req_id =get_req_id()
+    testCase = "Verify " + result1["goal"]
 
     testcase =[{ 
         "testCaseId": get_test_id(),
         "requirementId": req_id,
-        "testCase": result1["goal"],
+        "testCase": testCase,
         "precondition": result2[0]["given"],
         "steps": [
         result2[0]["when"]
@@ -114,7 +114,7 @@ def nlp_processor(us,ac,priority):
     },
     {"testCaseId": get_test_id(),
         "requirementId": req_id,
-        "testCase": result1["goal"],
+        "testCase": testCase,
         "precondition": result2[1]["given"],
         "steps": [
         result2[1]["when"]

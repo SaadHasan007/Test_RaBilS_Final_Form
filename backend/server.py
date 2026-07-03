@@ -3,7 +3,7 @@ load_dotenv()  # Loads OPENAI_API_KEY from backend/.env automatically
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from modules.ambiguityRemover import check_ambiguity
+from modules.ambiguityRemover import remove_ambiguity
 from modules.prioritizer import calculate_priority
 from modules.generator import generate_ac
 from modules.nlp import nlp_processor, reset_ids
@@ -33,19 +33,20 @@ def index():
 #   }
 # ─────────────────────────────────────────────────────────────────────────────
 
-@app.route('/api/ambiguity', methods=['POST'])
-def check_ambiguity_route():
+@app.route('/api/ambiguityRemove', methods=['POST'])
+def remove_ambiguity_route():
     data = request.json
     user_story = data.get('user_story', '')
-
+    ambiguity_report = data.get('ambiguity_report', [])
     if not user_story:
         return jsonify({'error': 'User story is required'}), 400
 
-    result = check_ambiguity(user_story)
+    result = remove_ambiguity(user_story, ambiguity_report)
+    print("Ambiguity removal result:", result['processed_story'])
     return jsonify(result)
 
 
-@app.route('/api/xAmbiguityReport', methods=['POST'])
+@app.route('/api/ambiguityReport', methods=['POST'])
 def get_ambiguity_report_route():
     data = request.json
     user_story = data.get('user_story', '')
@@ -76,8 +77,7 @@ def generate_route():
     # Use the AI-formatted story for generation if it was provided by the
     # ambiguity check step; otherwise fall back to the raw input.
     story_for_generation = data.get('formatted_story') or user_story
-
-
+    print("Story for generation:", story_for_generation)
     acceptance_criteria = generate_ac(story_for_generation)
 
     #handle this error , this is due to priorty previusely takes string, but now we giving it a list

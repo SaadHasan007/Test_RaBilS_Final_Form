@@ -3,6 +3,11 @@ import React, { useState } from 'react';
 const AmbiguityCheck = ({ ambiguityNotes, formattedStory, usedAi, originalStory }) => {
     const [showNotes, setShowNotes] = useState(true);
 
+    // handle this error ambiguity notes are not string but a list of strings
+    // if (Array.isArray(ambiguityNotes)) {
+    //     ambiguityNotes = ambiguityNotes.join('\n');
+    // }
+
     // Nothing to show if no data has arrived yet
     if (!formattedStory && (!ambiguityNotes || ambiguityNotes.length === 0)) return null;
 
