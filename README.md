@@ -282,16 +282,6 @@ Test-RaBilS-FYP/
 
 ---
 
-## 👥 Team
-
-| Name | Role |
-|------|------|
-| **Saad** | Full-Stack Development, System Integration |
-| **Rafi** | NLP & ML Model Development |
-| **Bilal** | Research & Testing |
-
----
-
 ## 📜 License
 
 This project is developed as a **Final Year Project (FYP)** for academic purposes.
